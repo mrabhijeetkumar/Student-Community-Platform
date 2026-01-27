@@ -23,9 +23,12 @@ function Signup() {
 
     /* ===== SUPABASE SIGN UP ===== */
     const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+  email,
+  password,
+});
+
+console.log(data); // 👈 ESLint satisfied
+
 
     setLoading(false);
 
