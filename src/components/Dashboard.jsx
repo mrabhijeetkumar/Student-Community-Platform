@@ -19,7 +19,7 @@ function Dashboard({ user }) {
       if (data) {
         const map = {};
         data.forEach(u => {
-          map[u.id] = u; // auth.uid
+          map[u.id] = u;
         });
         setUsers(map);
       }
@@ -40,8 +40,23 @@ function Dashboard({ user }) {
     gender: "Male",
     photo: ""
   });
+  
+  const [showSettings, setShowSettings] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notification, setNotification] = useState("Allow"); // Allow | Mute
+  const [theme, setTheme] = useState("Light"); // Light | Dark
+  const [language, setLanguage] = useState("Eng"); // Eng | Hindi
 
-  /* ================= LOAD CURRENT USER PROFILE ================= */
+  /* ================= 🌑 DARK MODE EFFECT ================= */
+  useEffect(() => {
+    if (theme === "Dark") {
+      document.body.classList.add("dark-mode");
+    } else {
+      document.body.classList.remove("dark-mode");
+    }
+  }, [theme]);
+
+  /* ================= LOAD CURRENT USER PROFILE & SETTINGS (✅ STEP 4 UPDATED) ================= */
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -53,6 +68,7 @@ function Dashboard({ user }) {
         .single();
 
       if (data) {
+        // Load Profile Data
         setProfile({
           name: data.name || "",
           email: data.email || user.email,
@@ -60,6 +76,11 @@ function Dashboard({ user }) {
           gender: data.gender || "Male",
           photo: data.photo || ""
         });
+
+        // ✅ Load Settings Data
+        setTheme(data.theme || "Light");
+        setLanguage(data.language || "Eng");
+        setNotification(data.notification || "Allow");
       }
     };
 
@@ -93,7 +114,7 @@ function Dashboard({ user }) {
     const file = e.target.files[0];
     if (!file) return;
 
-    const filePath = `profiles/${user.uid}.jpg`;
+    const filePath = `${user.uid}.jpg`;
 
     const { error } = await supabase.storage
       .from("profiles")
@@ -126,14 +147,26 @@ function Dashboard({ user }) {
     else alert("Profile updated successfully ✅");
   };
 
-  /* ================= ADD POST (FIXED) ================= */
+  /* ================= SAVE SETTINGS (✅ STEP 5 ADDED) ================= */
+  const saveSettings = async () => {
+    const { error } = await supabase.from("users").update({
+      theme,
+      language,
+      notification
+    }).eq("id", user.uid);
+
+    if (error) alert("Settings save failed ❌");
+    else alert("Settings saved successfully ✅");
+  };
+
+  /* ================= ADD POST ================= */
   const addPost = async (text) => {
     if (!text.trim()) return;
 
     const { data, error } = await supabase
       .from("posts")
       .insert({
-        user_uid: user.uid,   // ✅ FIX
+        user_uid: user.uid,
         content: text,
         likes: [],
         comments: [],
@@ -142,11 +175,8 @@ function Dashboard({ user }) {
       .select()
       .single();
 
-    console.log("POST DATA:", data);
-    console.log("POST ERROR:", error);
-
     if (!error && data) {
-      setPosts(prev => [data, ...prev]); // ✅ UI update
+      setPosts(prev => [data, ...prev]);
     }
   };
 
@@ -156,35 +186,54 @@ function Dashboard({ user }) {
       ? post.likes.filter(e => e !== user.uid)
       : [...post.likes, user.uid];
 
-    await supabase
-      .from("posts")
-      .update({ likes })
-      .eq("id", post.id);
+    await supabase.from("posts").update({ likes }).eq("id", post.id);
+
+    // ✅ REALTIME UI UPDATE
+    setPosts(prev =>
+      prev.map(p => (p.id === post.id ? { ...p, likes } : p))
+    );
   };
 
   /* ================= COMMENT ================= */
   const addComment = async (post, text) => {
     if (!text.trim()) return;
 
+    const newComment = {
+      id: Date.now(),
+      userUid: user.uid,
+      text
+    };
+
+    const comments = [...post.comments, newComment];
+
     await supabase
       .from("posts")
-      .update({
-        comments: [
-          ...post.comments,
-          { id: Date.now(), userUid: user.uid, text }
-        ]
-      })
+      .update({ comments })
       .eq("id", post.id);
+
+    // ✅ REALTIME UI UPDATE
+    setPosts(prev =>
+      prev.map(p => (p.id === post.id ? { ...p, comments } : p))
+    );
   };
 
   const deletePost = async (post) => {
     await supabase.from("posts").update({ deleted: true }).eq("id", post.id);
+
+    // ✅ REALTIME UI UPDATE
+    setPosts(prev => prev.filter(p => p.id !== post.id));
   };
 
   const editPost = async (post) => {
-    const txt = prompt("Edit post");
+    const txt = prompt("Edit post", post.content);
     if (!txt) return;
+
     await supabase.from("posts").update({ content: txt }).eq("id", post.id);
+
+    // ✅ REALTIME UI UPDATE
+    setPosts(prev =>
+      prev.map(p => (p.id === post.id ? { ...p, content: txt } : p))
+    );
   };
 
   /* ================= LOGOUT ================= */
@@ -276,7 +325,6 @@ function Dashboard({ user }) {
           <p onClick={() => setActiveTab("dashboard")}>🏠 Dashboard</p>
           <p onClick={() => setActiveTab("posts")}>📝 Posts</p>
           <p onClick={() => setActiveTab("profile")}>👤 Profile</p>
-          
         </div>
 
         <div className="content">
@@ -307,48 +355,168 @@ function Dashboard({ user }) {
           )}
 
           {activeTab === "profile" && (
-            <>
-              <h2>Edit Profile</h2>
-
-              <div className="profile-card">
-                <div className="profile-photo">
+            <div className="profile-layout">
+              {/* LEFT PROFILE MENU */}
+              <div className="profile-sidebar">
+                <div className="profile-user">
                   <img
-                    src={profile.photo || "https://via.placeholder.com/120"}
-                    alt="profile"
+                    src={profile.photo || "https://via.placeholder.com/60"}
+                    alt="user"
                   />
-                  <label className="photo-upload">
-                    📷
-                    <input type="file" hidden onChange={handlePhotoChange} />
-                  </label>
+                  <div>
+                    <h4>{profile.name || "Your name"}</h4>
+                    <p>{profile.email}</p>
+                  </div>
                 </div>
 
-                <input
-                  value={profile.name}
-                  onChange={e =>
-                    setProfile({ ...profile, name: e.target.value })
-                  }
-                />
+                <div className="profile-menu">
+                  <div className="menu-item active">👤 My Profile</div>
+                  <div className="menu-item" onClick={() => setShowSettings(true)}>
+                    ⚙️ Settings
+                  </div>
 
-                <input
-                  value={profile.phone}
-                  onChange={e =>
-                    setProfile({ ...profile, phone: e.target.value })
-                  }
-                  placeholder="Phone"
-                />
+                  <div
+                    className="menu-item"
+                    onClick={() => setShowNotification(!showNotification)}
+                  >
+                    🔔 Notification
+                    <span className="menu-action">{notification}</span>
 
-                <input value={profile.email} disabled />
+                    {showNotification && (
+                      <div className="notification-dropdown">
+                        <p onClick={() => {
+                          setNotification("Allow");
+                          setShowNotification(false);
+                        }}>Allow</p>
 
-                <button className="save-btn" onClick={handleProfileSave}>
-                  Save Profile
-                </button>
+                        <p onClick={() => {
+                          setNotification("Mute");
+                          setShowNotification(false);
+                        }}>Mute</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="menu-item logout" onClick={handleLogout}>
+                    🚪 Log Out
+                  </div>
+                </div>
               </div>
-            </>
+
+              {/* RIGHT PROFILE DETAILS */}
+              <div className="profile-details">
+                <div className="profile-header">
+                  <div className="profile-avatar">
+                    <img
+                      src={profile.photo || "https://via.placeholder.com/80"}
+                      alt="profile"
+                    />
+                    <label className="edit-avatar">
+                      ✏️
+                      <input type="file" hidden onChange={handlePhotoChange} />
+                    </label>
+                  </div>
+
+                  <div>
+                    <h3>{profile.name || "Your name"}</h3>
+                    <p>{profile.email}</p>
+                  </div>
+                </div>
+
+                <div className="profile-form">
+                  <div className="form-row">
+                    <label>Name</label>
+                    <input
+                      value={profile.name}
+                      onChange={e =>
+                        setProfile({ ...profile, name: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <label>Email account</label>
+                    <input value={profile.email} disabled />
+                  </div>
+
+                  <div className="form-row">
+                    <label>Mobile number</label>
+                    <input
+                      placeholder="Add number"
+                      value={profile.phone}
+                      onChange={e =>
+                        setProfile({ ...profile, phone: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <label>Location</label>
+                    <input placeholder="India" />
+                  </div>
+
+                  <button
+                    className="save-profile-btn"
+                    onClick={handleProfileSave}
+                  >
+                    Save Change
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           {activeTab === "posts" && posts.map(renderPost)}
         </div>
       </div>
+
+      {/* 🔥 SETTINGS POPUP (✅ STEP 6 UPDATED WITH SAVE BUTTON) */}
+      {showSettings && (
+        <div className="settings-overlay">
+          <div className="settings-card">
+            <div className="settings-header">
+              <h3>Settings</h3>
+              <span onClick={() => setShowSettings(false)}>✖</span>
+            </div>
+
+            <div className="settings-row">
+              <label>Theme</label>
+              <select
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+              >
+                <option>Light</option>
+                <option>Dark</option>
+              </select>
+            </div>
+
+            <div className="settings-row">
+              <label>Language</label>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                <option>Eng</option>
+                <option>Hindi</option>
+              </select>
+            </div>
+
+            {/* ✅ SAVE BUTTON ADDED */}
+            <button
+              className="save-btn"
+              style={{ marginTop: "10px" }}
+              onClick={() => {
+                saveSettings();
+                setShowSettings(false);
+              }}
+            >
+              Save Change
+            </button>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

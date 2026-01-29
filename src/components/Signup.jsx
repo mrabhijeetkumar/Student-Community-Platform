@@ -1,43 +1,61 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../style.css";
-import loginImage from "../assets/login_image.png";
+import signupImage from "../assets/login_image.png";
 
-// ✅ SUPABASE
+// 🔥 SUPABASE
 import { supabase } from "../supabase";
 
 function Signup() {
   const navigate = useNavigate();
 
+  const [name, setName] = useState("");
+  const [gender, setGender] = useState("Male");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
-    if (!email || !password) {
-      alert("Please enter email and password");
+    // ✅ VALIDATION
+    if (!name || !email || !password || !gender) {
+      alert("Please fill all fields ❌");
       return;
     }
 
     setLoading(true);
 
-    /* ===== SUPABASE SIGN UP ===== */
+    // 1️⃣ SUPABASE AUTH SIGNUP
     const { data, error } = await supabase.auth.signUp({
-  email,
-  password,
-});
-
-console.log(data); // 👈 ESLint satisfied
-
-
-    setLoading(false);
+      email,
+      password,
+    });
 
     if (error) {
+      setLoading(false);
       alert(error.message + " ❌");
       return;
     }
 
-    alert("Signup successful ✅ Now login");
+    const user = data.user;
+
+    // 2️⃣ INSERT INTO USERS TABLE
+    const { error: profileError } = await supabase.from("users").insert({
+      id: user.id,
+      email: user.email,
+      name: name,
+      gender: gender,
+      phone: "",
+      photo: "",
+    });
+
+    setLoading(false);
+
+    if (profileError) {
+      alert("Profile creation failed ❌");
+      return;
+    }
+
+    alert("Signup successful ✅");
     navigate("/login");
   };
 
@@ -46,7 +64,7 @@ console.log(data); // 👈 ESLint satisfied
       {/* LEFT IMAGE */}
       <div
         className="login-left"
-        style={{ backgroundImage: `url(${loginImage})` }}
+        style={{ backgroundImage: `url(${signupImage})` }}
       />
 
       {/* RIGHT FORM */}
@@ -54,29 +72,52 @@ console.log(data); // 👈 ESLint satisfied
         <div className="login-card">
           <h2 className="login-title">SIGN UP</h2>
 
-          <input
-            className="login-input"
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          {/* NAME */}
+         <div className="input-box">
+  <input
+    type="text"
+    required
+    placeholder=" "
+    value={name}
+    onChange={(e) => setName(e.target.value)}
+  />
+  <label>Name</label>
+</div>
 
-          <input
-            className="login-input"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+<div className="input-box">
+  <input
+    type="email"
+    required
+    placeholder=" "
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+  />
+  <label>Email</label>
+</div>
 
-          <button className="login-btn" onClick={handleSignup} disabled={loading}>
+<div className="input-box">
+  <input
+    type="password"
+    required
+    placeholder=" "
+    value={password}
+    onChange={(e) => setPassword(e.target.value)}
+  />
+  <label>Password</label>
+</div>
+
+
+          <button
+            className="login-btn"
+            onClick={handleSignup}
+            disabled={loading}
+          >
             {loading ? "Signing up..." : "Sign Up"}
           </button>
 
           <div className="signup-text">
             Already have an account?{" "}
-            <span onClick={() => navigate("/login")}>Login</span>
+            <span onClick={() => navigate("/login")}>Log In</span>
           </div>
         </div>
       </div>
