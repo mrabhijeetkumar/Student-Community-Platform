@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../style.css";
-import signupImage from "../assets/login_image.png";
-
-// 🔥 SUPABASE
+import signupImage from "../assets/login_image.png"; // Using same background
 import { supabase } from "../supabase";
+
+// Icons
+import { FiUser, FiMail, FiLock } from "react-icons/fi";
 
 function Signup() {
   const navigate = useNavigate();
@@ -60,86 +61,84 @@ function Signup() {
   };
 
   return (
-    <div className="login-page">
-      {/* LEFT IMAGE */}
-      <div
-        className="login-left"
-        style={{ backgroundImage: `url(${signupImage})` }}
-      />
+    <div className="login-page" style={{ backgroundImage: `url(${signupImage})` }}>
 
-      {/* RIGHT FORM */}
-      <div className="login-right">
-        <div className="login-card">
-          <h2 className="login-title">SIGN UP</h2>
+      <div className="login-card">
 
-          {/* NAME */}
-         <div className="input-box">
-  <input
-    type="text"
-    required
-    placeholder=" "
-    value={name}
-    onChange={(e) => setName(e.target.value)}
-  />
-  <label>Name</label>
-</div>
+        <h2 className="welcome-text">Join Community</h2>
 
-<div className="input-box">
-  <input
-    type="email"
-    required
-    placeholder=" "
-    value={email}
-    onChange={(e) => setEmail(e.target.value)}
-  />
-  <label>Email</label>
-</div>
+        {/* Name Input */}
+        <div className="input-box">
+          <input
+            className="login-input"
+            type="text"
+            placeholder="Full Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <FiUser className="input-icon" />
+        </div>
 
-<div className="input-box">
-  <input
-    type="password"
-    required
-    placeholder=" "
-    value={password}
-    onChange={(e) => setPassword(e.target.value)}
-  />
-  <label>Password</label>
-</div>
-<div className="gender-box">
-  <label>
-    <input
-      type="radio"
-      value="Male"
-      checked={gender === "Male"}
-      onChange={(e) => setGender(e.target.value)}
-    /> Male
-  </label>
+        {/* Email Input */}
+        <div className="input-box">
+          <input
+            className="login-input"
+            type="email"
+            placeholder="University Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <FiMail className="input-icon" />
+        </div>
 
-  <label>
-    <input
-      type="radio"
-      value="Female"
-      checked={gender === "Female"}
-      onChange={(e) => setGender(e.target.value)}
-    /> Female
-  </label>
-</div>
+        {/* Password Input */}
+        <div className="input-box">
+          <input
+            className="login-input"
+            type="password"
+            placeholder="Create Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <FiLock className="input-icon" />
+        </div>
 
+        {/* Gender Selection (Styled for Glass Theme) */}
+        <div style={{ display: "flex", gap: "20px", marginBottom: "20px", color: "white", justifyContent: "center" }}>
+          <label style={{ cursor: "pointer" }}>
+            <input
+              type="radio"
+              value="Male"
+              checked={gender === "Male"}
+              onChange={(e) => setGender(e.target.value)}
+              style={{ marginRight: "8px" }}
+            /> Male
+          </label>
+          <label style={{ cursor: "pointer" }}>
+            <input
+              type="radio"
+              value="Female"
+              checked={gender === "Female"}
+              onChange={(e) => setGender(e.target.value)}
+              style={{ marginRight: "8px" }}
+            /> Female
+          </label>
+        </div>
 
+        <button
+          className="login-btn"
+          onClick={handleSignup}
+          disabled={loading}
+        >
+          {loading ? "Creating..." : "Sign Up"}
+        </button>
 
-          <button
-            className="login-btn"
-            onClick={handleSignup}
-            disabled={loading}
-          >
-            {loading ? "Signing up..." : "Sign Up"}
-          </button>
-
-          <div className="signup-text">
-            Already have an account?{" "}
-            <span onClick={() => navigate("/login")}>Log In</span>
+        <div className="footer-links" style={{ justifyContent: "center" }}>
+          <div className="create-acc" onClick={() => navigate("/login")}>
+            Already have an account? <span>Log In</span>
           </div>
         </div>
+
       </div>
     </div>
   );

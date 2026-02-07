@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../style.css";
+// NOTE: Hum same image use kar rahe hain, lekin CSS usse full screen background bana dega
 import loginImage from "../assets/login_image.png";
-
-// ✅ SUPABASE
 import { supabase } from "../supabase";
+
+// Icons Import (Make sure to run: npm install react-icons)
+import { FiMail, FiLock } from "react-icons/fi";
 
 function Login({ setUser }) {
   const navigate = useNavigate();
@@ -42,12 +44,6 @@ function Login({ setUser }) {
       return;
     }
 
-    /* ===== OPTIONAL EMAIL CONFIRM CHECK ===== */
-    if (!user.email_confirmed_at) {
-      alert("Please verify your email first 📧");
-      return;
-    }
-
     /* ===== SAVE CURRENT USER ===== */
     const currentUser = {
       uid: user.id,
@@ -61,26 +57,39 @@ function Login({ setUser }) {
   };
 
   return (
-    <div className="login-page">
-      {/* LEFT IMAGE */}
-      <div
-        className="login-left"
-        style={{ backgroundImage: `url(${loginImage})` }}
-      />
+    // Background Image is now applied to the main container
+    <div className="login-page" style={{ backgroundImage: `url(${loginImage})` }}>
 
-      {/* RIGHT FORM */}
-      <div className="login-right">
-        <div className="login-card">
-          <h2 className="login-title">LOGIN</h2>
+      {/* Centered Glass Card */}
+      <div className="login-card">
 
+        {/* Animated Logo */}
+        <div className="brand-logo">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" />
+          </svg>
+          <div className="brand-text">
+            <span>Student Community</span> <br />
+            <span>Platform</span>
+          </div>
+        </div>
+
+        <h2 className="welcome-text">Welcome Back</h2>
+
+        {/* Email Input with Icon */}
+        <div className="input-box">
           <input
             className="login-input"
             type="email"
-            placeholder="User Email"
+            placeholder="University Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
+          <FiMail className="input-icon" />
+        </div>
 
+        {/* Password Input with Icon */}
+        <div className="input-box">
           <input
             className="login-input"
             type="password"
@@ -88,25 +97,27 @@ function Login({ setUser }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <FiLock className="input-icon" />
+        </div>
 
-          <button
-            className="login-btn"
-            onClick={handleLogin}
-            disabled={loading}
-          >
-            {loading ? "Logging in..." : "Log In"}
-          </button>
+        <button
+          className="login-btn"
+          onClick={handleLogin}
+          disabled={loading}
+        >
+          {loading ? "Logging in..." : "Log In"}
+        </button>
 
-          <p
-            style={{ cursor: "pointer", color: "#4a7ef3", marginTop: "10px" }}
+        <div className="footer-links">
+          <span
+            className="forgot-pass"
             onClick={() => navigate("/forgot-password")}
           >
             Forgot Password?
-          </p>
+          </span>
 
-          <div className="signup-text">
-            Don’t have an account?{" "}
-            <span onClick={() => navigate("/signup")}>Sign Up</span>
+          <div className="create-acc" onClick={() => navigate("/signup")}>
+            New here? <span>Create Account</span>
           </div>
         </div>
       </div>
