@@ -1253,3 +1253,15 @@ select:focus {
     max-width: 340px;
   }
 }
+
+/* Theme Change */
+.dark-mode {
+  background: #0b1020;
+  color: white;
+}
+
+.dark-mode .card-box,
+.dark-mode .post-card,
+.dark-mode .profile-details {
+  background: #111827;
+}

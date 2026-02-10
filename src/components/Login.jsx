@@ -1,15 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../style.css";
-// NOTE: Hum same image use kar rahe hain, lekin CSS usse full screen background bana dega
 import loginImage from "../assets/login_image.png";
 import { supabase } from "../supabase";
 
-// Icons Import (Make sure to run: npm install react-icons)
+// Icons
 import { FiMail, FiLock } from "react-icons/fi";
 
 function Login({ setUser }) {
   const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,40 +29,56 @@ function Login({ setUser }) {
       password,
     });
 
-    setLoading(false);
-
     if (error) {
+      setLoading(false);
       alert(error.message + " ❌");
       return;
     }
 
-    const user = data?.user;
+    const authUser = data?.user;
     const session = data?.session;
 
-    if (!user || !session) {
+    if (!authUser || !session) {
+      setLoading(false);
       alert("Login failed, try again ❌");
       return;
     }
 
+    /* ===== LOAD USER PROFILE FROM USERS TABLE ===== */
+    const { data: profileData } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", authUser.id)
+      .single();
+
     /* ===== SAVE CURRENT USER ===== */
     const currentUser = {
-      uid: user.id,
-      email: user.email,
+      uid: authUser.id,
+      email: authUser.email,
+      name: profileData?.name || "",
+      photo: profileData?.photo || "",
+      phone: profileData?.phone || "",
+      gender: profileData?.gender || "Male",
+      theme: profileData?.theme || "Light",
+      language: profileData?.language || "Eng",
+      notification: profileData?.notification || "Allow",
     };
 
     localStorage.setItem("currentUser", JSON.stringify(currentUser));
     setUser(currentUser);
 
+    setLoading(false);
+
     navigate("/dashboard");
   };
 
   return (
-    // Background Image is now applied to the main container
-    <div className="login-page" style={{ backgroundImage: `url(${loginImage})` }}>
-
+    <div
+      className="login-page"
+      style={{ backgroundImage: `url(${loginImage})` }}
+    >
       {/* Centered Glass Card */}
       <div className="login-card">
-
         {/* Animated Logo */}
         <div className="brand-logo">
           <svg viewBox="0 0 24 24" fill="currentColor">
@@ -76,7 +92,7 @@ function Login({ setUser }) {
 
         <h2 className="welcome-text">Welcome Back</h2>
 
-        {/* Email Input with Icon */}
+        {/* Email Input */}
         <div className="input-box">
           <input
             className="login-input"
@@ -88,7 +104,7 @@ function Login({ setUser }) {
           <FiMail className="input-icon" />
         </div>
 
-        {/* Password Input with Icon */}
+        {/* Password Input */}
         <div className="input-box">
           <input
             className="login-input"

@@ -40,23 +40,20 @@ function Dashboard({ user }) {
     gender: "Male",
     photo: ""
   });
-  
+
   const [showSettings, setShowSettings] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
-  const [notification, setNotification] = useState("Allow"); // Allow | Mute
-  const [theme, setTheme] = useState("Light"); // Light | Dark
-  const [language, setLanguage] = useState("Eng"); // Eng | Hindi
+  const [notification, setNotification] = useState("Allow");
+  const [theme, setTheme] = useState("Light");
+  const [language, setLanguage] = useState("Eng");
 
-  /* ================= 🌑 DARK MODE EFFECT ================= */
+  /* ================= DARK MODE ================= */
   useEffect(() => {
-    if (theme === "Dark") {
-      document.body.classList.add("dark-mode");
-    } else {
-      document.body.classList.remove("dark-mode");
-    }
+    if (theme === "Dark") document.body.classList.add("dark-mode");
+    else document.body.classList.remove("dark-mode");
   }, [theme]);
 
-  /* ================= LOAD CURRENT USER PROFILE & SETTINGS (✅ STEP 4 UPDATED) ================= */
+  /* ================= LOAD CURRENT USER PROFILE ================= */
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -68,7 +65,6 @@ function Dashboard({ user }) {
         .single();
 
       if (data) {
-        // Load Profile Data
         setProfile({
           name: data.name || "",
           email: data.email || user.email,
@@ -77,7 +73,6 @@ function Dashboard({ user }) {
           photo: data.photo || ""
         });
 
-        // ✅ Load Settings Data
         setTheme(data.theme || "Light");
         setLanguage(data.language || "Eng");
         setNotification(data.notification || "Allow");
@@ -109,12 +104,17 @@ function Dashboard({ user }) {
     loadPosts();
   }, []);
 
-  /* ================= PROFILE PHOTO UPLOAD ================= */
+  /* ================= PROFILE PHOTO UPLOAD (FIXED) ================= */
   const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const filePath = `${user.uid}.jpg`;
+    // Realtime preview
+    const previewUrl = URL.createObjectURL(file);
+    setProfile(prev => ({ ...prev, photo: previewUrl }));
+
+    // Unique filename to avoid cache
+    const filePath = `${user.uid}-${Date.now()}.jpg`;
 
     const { error } = await supabase.storage
       .from("profiles")
@@ -129,7 +129,22 @@ function Dashboard({ user }) {
       .from("profiles")
       .getPublicUrl(filePath);
 
-    setProfile(prev => ({ ...prev, photo: data.publicUrl }));
+    const publicUrl = data.publicUrl;
+
+    // Update state
+    setProfile(prev => ({ ...prev, photo: publicUrl }));
+
+    // Save in users table
+    await supabase
+      .from("users")
+      .update({ photo: publicUrl })
+      .eq("id", user.uid);
+
+    // Update users map so posts/sidebar update instantly
+    setUsers(prev => ({
+      ...prev,
+      [user.uid]: { ...(prev[user.uid] || {}), photo: publicUrl }
+    }));
   };
 
   /* ================= SAVE PROFILE ================= */
@@ -147,7 +162,7 @@ function Dashboard({ user }) {
     else alert("Profile updated successfully ✅");
   };
 
-  /* ================= SAVE SETTINGS (✅ STEP 5 ADDED) ================= */
+  /* ================= SAVE SETTINGS ================= */
   const saveSettings = async () => {
     const { error } = await supabase.from("users").update({
       theme,
@@ -175,9 +190,7 @@ function Dashboard({ user }) {
       .select()
       .single();
 
-    if (!error && data) {
-      setPosts(prev => [data, ...prev]);
-    }
+    if (!error && data) setPosts(prev => [data, ...prev]);
   };
 
   /* ================= LIKE ================= */
@@ -188,7 +201,6 @@ function Dashboard({ user }) {
 
     await supabase.from("posts").update({ likes }).eq("id", post.id);
 
-    // ✅ REALTIME UI UPDATE
     setPosts(prev =>
       prev.map(p => (p.id === post.id ? { ...p, likes } : p))
     );
@@ -198,20 +210,11 @@ function Dashboard({ user }) {
   const addComment = async (post, text) => {
     if (!text.trim()) return;
 
-    const newComment = {
-      id: Date.now(),
-      userUid: user.uid,
-      text
-    };
-
+    const newComment = { id: Date.now(), userUid: user.uid, text };
     const comments = [...post.comments, newComment];
 
-    await supabase
-      .from("posts")
-      .update({ comments })
-      .eq("id", post.id);
+    await supabase.from("posts").update({ comments }).eq("id", post.id);
 
-    // ✅ REALTIME UI UPDATE
     setPosts(prev =>
       prev.map(p => (p.id === post.id ? { ...p, comments } : p))
     );
@@ -219,8 +222,6 @@ function Dashboard({ user }) {
 
   const deletePost = async (post) => {
     await supabase.from("posts").update({ deleted: true }).eq("id", post.id);
-
-    // ✅ REALTIME UI UPDATE
     setPosts(prev => prev.filter(p => p.id !== post.id));
   };
 
@@ -230,7 +231,6 @@ function Dashboard({ user }) {
 
     await supabase.from("posts").update({ content: txt }).eq("id", post.id);
 
-    // ✅ REALTIME UI UPDATE
     setPosts(prev =>
       prev.map(p => (p.id === post.id ? { ...p, content: txt } : p))
     );
@@ -252,7 +252,11 @@ function Dashboard({ user }) {
         <div className="post-header">
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
             <img
-              src={postProfile.photo || "https://via.placeholder.com/40"}
+              src={
+                postProfile.photo
+                  ? postProfile.photo + "?v=" + Date.now()
+                  : "https://via.placeholder.com/40"
+              }
               alt="profile"
               style={{ width: 40, height: 40, borderRadius: "50%" }}
             />
@@ -314,7 +318,8 @@ function Dashboard({ user }) {
   };
 
   return (
-    <div className="dashboard">
+    <div className={`dashboard ${theme === "Dark" ? "dark-mode" : ""}`}>
+
       <div className="topbar">
         <h3>Student Community Platform</h3>
         <button onClick={handleLogout}>Logout</button>
@@ -356,11 +361,14 @@ function Dashboard({ user }) {
 
           {activeTab === "profile" && (
             <div className="profile-layout">
-              {/* LEFT PROFILE MENU */}
               <div className="profile-sidebar">
                 <div className="profile-user">
                   <img
-                    src={profile.photo || "https://via.placeholder.com/60"}
+                    src={
+                      profile.photo
+                        ? profile.photo + "?v=" + Date.now()
+                        : "https://via.placeholder.com/60"
+                    }
                     alt="user"
                   />
                   <div>
@@ -403,12 +411,15 @@ function Dashboard({ user }) {
                 </div>
               </div>
 
-              {/* RIGHT PROFILE DETAILS */}
               <div className="profile-details">
                 <div className="profile-header">
                   <div className="profile-avatar">
                     <img
-                      src={profile.photo || "https://via.placeholder.com/80"}
+                      src={
+                        profile.photo
+                          ? profile.photo + "?v=" + Date.now()
+                          : "https://via.placeholder.com/80"
+                      }
                       alt="profile"
                     />
                     <label className="edit-avatar">
@@ -470,7 +481,6 @@ function Dashboard({ user }) {
         </div>
       </div>
 
-      {/* 🔥 SETTINGS POPUP (✅ STEP 6 UPDATED WITH SAVE BUTTON) */}
       {showSettings && (
         <div className="settings-overlay">
           <div className="settings-card">
@@ -483,8 +493,18 @@ function Dashboard({ user }) {
               <label>Theme</label>
               <select
                 value={theme}
-                onChange={(e) => setTheme(e.target.value)}
+                onChange={(e) => {
+                  const selectedTheme = e.target.value;
+                  setTheme(selectedTheme); // realtime change
+
+                  // optional instant save (without clicking button)
+                  supabase
+                    .from("users")
+                    .update({ theme: selectedTheme })
+                    .eq("id", user.uid);
+                }}
               >
+
                 <option>Light</option>
                 <option>Dark</option>
               </select>
@@ -492,16 +512,12 @@ function Dashboard({ user }) {
 
             <div className="settings-row">
               <label>Language</label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-              >
+              <select value={language} onChange={(e) => setLanguage(e.target.value)}>
                 <option>Eng</option>
                 <option>Hindi</option>
               </select>
             </div>
 
-            {/* ✅ SAVE BUTTON ADDED */}
             <button
               className="save-btn"
               style={{ marginTop: "10px" }}
@@ -512,11 +528,9 @@ function Dashboard({ user }) {
             >
               Save Change
             </button>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }
