@@ -1,70 +1,49 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../style.css";
-import signupImage from "../assets/login_image.png"; // Using same background
+import signupImage from "../assets/login_image.png";
 import { supabase } from "../supabase";
 
-// Icons
-import { FiUser, FiMail, FiLock } from "react-icons/fi";
+import { FiUser } from "react-icons/fi";
+import { FcGoogle } from "react-icons/fc";
 
 function Signup() {
   const navigate = useNavigate();
 
   const [name, setName] = useState("");
   const [gender, setGender] = useState("Male");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = async () => {
-    // ✅ VALIDATION
-    if (!name || !email || !password || !gender) {
+  const handleGoogleSignup = async () => {
+    if (!name || !gender) {
       alert("Please fill all fields ❌");
       return;
     }
 
     setLoading(true);
 
-    // 1️⃣ SUPABASE AUTH SIGNUP
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
     });
 
     if (error) {
       setLoading(false);
       alert(error.message + " ❌");
-      return;
     }
-
-    const user = data.user;
-
-    // 2️⃣ INSERT INTO USERS TABLE
-    const { error: profileError } = await supabase.from("users").insert({
-      id: user.id,
-      email: user.email,
-      name: name,
-      gender: gender,
-      phone: "",
-      photo: "",
-    });
-
-    setLoading(false);
-
-    if (profileError) {
-      alert("Profile creation failed ❌");
-      return;
-    }
-
-    alert("Signup successful ✅");
-    navigate("/login");
   };
 
   return (
-    <div className="login-page" style={{ backgroundImage: `url(${signupImage})` }}>
-
+    <div
+      className="login-page"
+      style={{ backgroundImage: `url(${signupImage})` }}
+    >
       <div className="login-card">
-
         <h2 className="welcome-text">Join Community</h2>
 
         {/* Name Input */}
@@ -79,32 +58,16 @@ function Signup() {
           <FiUser className="input-icon" />
         </div>
 
-        {/* Email Input */}
-        <div className="input-box">
-          <input
-            className="login-input"
-            type="email"
-            placeholder="University Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <FiMail className="input-icon" />
-        </div>
-
-        {/* Password Input */}
-        <div className="input-box">
-          <input
-            className="login-input"
-            type="password"
-            placeholder="Create Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <FiLock className="input-icon" />
-        </div>
-
-        {/* Gender Selection (Styled for Glass Theme) */}
-        <div style={{ display: "flex", gap: "20px", marginBottom: "20px", color: "white", justifyContent: "center" }}>
+        {/* Gender Selection */}
+        <div
+          style={{
+            display: "flex",
+            gap: "20px",
+            marginBottom: "20px",
+            color: "white",
+            justifyContent: "center",
+          }}
+        >
           <label style={{ cursor: "pointer" }}>
             <input
               type="radio"
@@ -112,8 +75,10 @@ function Signup() {
               checked={gender === "Male"}
               onChange={(e) => setGender(e.target.value)}
               style={{ marginRight: "8px" }}
-            /> Male
+            />
+            Male
           </label>
+
           <label style={{ cursor: "pointer" }}>
             <input
               type="radio"
@@ -121,16 +86,25 @@ function Signup() {
               checked={gender === "Female"}
               onChange={(e) => setGender(e.target.value)}
               style={{ marginRight: "8px" }}
-            /> Female
+            />
+            Female
           </label>
         </div>
 
+        {/* Google Signup Button */}
         <button
           className="login-btn"
-          onClick={handleSignup}
+          onClick={handleGoogleSignup}
           disabled={loading}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+          }}
         >
-          {loading ? "Creating..." : "Sign Up"}
+          <FcGoogle size={20} />
+          {loading ? "Redirecting..." : "Continue with Google"}
         </button>
 
         <div className="footer-links" style={{ justifyContent: "center" }}>
@@ -138,7 +112,6 @@ function Signup() {
             Already have an account? <span>Log In</span>
           </div>
         </div>
-
       </div>
     </div>
   );

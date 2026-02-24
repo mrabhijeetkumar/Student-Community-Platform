@@ -4,8 +4,27 @@ import "../style.css";
 // 🔥 SUPABASE
 import { supabase } from "../supabase";
 
-function Dashboard({ user }) {
-  console.log("DASHBOARD USER:", user);
+function Dashboard() {
+
+  /* ================= AUTH USER (ADDED) ================= */
+  const [authUser, setAuthUser] = useState(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        window.location.href = "/login";
+        return;
+      }
+
+      setAuthUser(user);
+    };
+
+    fetchUser();
+  }, []);
+
+  console.log("DASHBOARD USER:", authUser);
 
   const [posts, setPosts] = useState([]);
   const [menuOpenId, setMenuOpenId] = useState(null);
@@ -14,9 +33,17 @@ function Dashboard({ user }) {
 
   /* ================= LOAD ALL USERS ================= */
   useEffect(() => {
+    let isMounted = true;
+
     const loadUsers = async () => {
-      const { data } = await supabase.from("users").select("*");
-      if (data) {
+      const { data, error } = await supabase.from("users").select("*");
+
+      if (error) {
+        console.error("Error loading users:", error.message);
+        return;
+      }
+
+      if (data && isMounted) {
         const map = {};
         data.forEach(u => {
           map[u.id] = u;
@@ -24,18 +51,24 @@ function Dashboard({ user }) {
         setUsers(map);
       }
     };
+
     loadUsers();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   /* ================= SAFE PROFILE GET ================= */
   const getProfile = (uid) => {
+    if (!uid) return { name: "User", photo: "" };
     return users[uid] || { name: "User", photo: "" };
   };
 
   /* ================= PROFILE STATE ================= */
   const [profile, setProfile] = useState({
     name: "",
-    email: user.email,
+    email: "",
     phone: "",
     gender: "Male",
     photo: ""
@@ -55,19 +88,24 @@ function Dashboard({ user }) {
 
   /* ================= LOAD CURRENT USER PROFILE ================= */
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!authUser?.id) return;
 
     const loadProfile = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("users")
         .select("*")
-        .eq("id", user.uid)
+        .eq("id", authUser.id)
         .single();
+
+      if (error) {
+        console.error("Profile load error:", error.message);
+        return;
+      }
 
       if (data) {
         setProfile({
           name: data.name || "",
-          email: data.email || user.email,
+          email: data.email || authUser.email,
           phone: data.phone || "",
           gender: data.gender || "Male",
           photo: data.photo || ""
@@ -80,18 +118,25 @@ function Dashboard({ user }) {
     };
 
     loadProfile();
-  }, [user]);
+  }, [authUser]);
 
   /* ================= LOAD POSTS ================= */
   useEffect(() => {
+    let isMounted = true;
+
     const loadPosts = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("posts")
         .select("*")
         .eq("deleted", false)
         .order("created_at", { ascending: false });
 
-      if (data) {
+      if (error) {
+        console.error("Error loading posts:", error.message);
+        return;
+      }
+
+      if (data && isMounted) {
         setPosts(
           data.map(p => ({
             ...p,
@@ -101,11 +146,18 @@ function Dashboard({ user }) {
         );
       }
     };
+
     loadPosts();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   /* ================= PROFILE PHOTO UPLOAD (FIXED) ================= */
   const handlePhotoChange = async (e) => {
+    if (!authUser) return;
+
     const file = e.target.files[0];
     if (!file) return;
 
@@ -114,7 +166,7 @@ function Dashboard({ user }) {
     setProfile(prev => ({ ...prev, photo: previewUrl }));
 
     // Unique filename to avoid cache
-    const filePath = `${user.uid}-${Date.now()}.jpg`;
+    const filePath = `${authUser.id}-${Date.now()}.jpg`;
 
     const { error } = await supabase.storage
       .from("profiles")
@@ -138,20 +190,22 @@ function Dashboard({ user }) {
     await supabase
       .from("users")
       .update({ photo: publicUrl })
-      .eq("id", user.uid);
+      .eq("id", authUser.id);
 
     // Update users map so posts/sidebar update instantly
     setUsers(prev => ({
       ...prev,
-      [user.uid]: { ...(prev[user.uid] || {}), photo: publicUrl }
+      [authUser.id]: { ...(prev[authUser.id] || {}), photo: publicUrl }
     }));
   };
 
   /* ================= SAVE PROFILE ================= */
   const handleProfileSave = async () => {
+    if (!authUser) return;
+
     const { error } = await supabase.from("users").upsert({
-      id: user.uid,
-      email: user.email,
+      id: authUser.id,
+      email: authUser.email,
       name: profile.name,
       phone: profile.phone || "",
       gender: profile.gender,
@@ -161,14 +215,18 @@ function Dashboard({ user }) {
     if (error) alert("Profile save failed ❌");
     else alert("Profile updated successfully ✅");
   };
-
   /* ================= SAVE SETTINGS ================= */
   const saveSettings = async () => {
-    const { error } = await supabase.from("users").update({
-      theme,
-      language,
-      notification
-    }).eq("id", user.uid);
+    if (!authUser) return;
+
+    const { error } = await supabase
+      .from("users")
+      .update({
+        theme,
+        language,
+        notification
+      })
+      .eq("id", authUser.id);
 
     if (error) alert("Settings save failed ❌");
     else alert("Settings saved successfully ✅");
@@ -176,12 +234,12 @@ function Dashboard({ user }) {
 
   /* ================= ADD POST ================= */
   const addPost = async (text) => {
-    if (!text.trim()) return;
+    if (!text.trim() || !authUser) return;
 
     const { data, error } = await supabase
       .from("posts")
       .insert({
-        user_uid: user.uid,
+        user_uid: authUser.id,
         content: text,
         likes: [],
         comments: [],
@@ -192,12 +250,13 @@ function Dashboard({ user }) {
 
     if (!error && data) setPosts(prev => [data, ...prev]);
   };
-
   /* ================= LIKE ================= */
   const toggleLike = async (post) => {
-    const likes = post.likes.includes(user.uid)
-      ? post.likes.filter(e => e !== user.uid)
-      : [...post.likes, user.uid];
+    if (!authUser) return;
+
+    const likes = post.likes.includes(authUser.id)
+      ? post.likes.filter(e => e !== authUser.id)
+      : [...post.likes, authUser.id];
 
     await supabase.from("posts").update({ likes }).eq("id", post.id);
 
@@ -208,9 +267,9 @@ function Dashboard({ user }) {
 
   /* ================= COMMENT ================= */
   const addComment = async (post, text) => {
-    if (!text.trim()) return;
+    if (!text.trim() || !authUser) return;
 
-    const newComment = { id: Date.now(), userUid: user.uid, text };
+    const newComment = { id: Date.now(), userUid: authUser.id, text };
     const comments = [...post.comments, newComment];
 
     await supabase.from("posts").update({ comments }).eq("id", post.id);
@@ -235,10 +294,14 @@ function Dashboard({ user }) {
       prev.map(p => (p.id === post.id ? { ...p, content: txt } : p))
     );
   };
-
   /* ================= LOGOUT ================= */
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Logout error:", error.message);
+    }
+
     localStorage.clear();
     window.location.href = "/login";
   };
@@ -263,7 +326,7 @@ function Dashboard({ user }) {
             <strong>{postProfile.name}</strong>
           </div>
 
-          {post.user_uid === user.uid && (
+          {authUser && post.user_uid === authUser.id && (
             <div className="menu-wrapper">
               <span
                 className="three-dots"
@@ -373,7 +436,7 @@ function Dashboard({ user }) {
                   />
                   <div>
                     <h4>{profile.name || "Your name"}</h4>
-                    <p>{profile.email}</p>
+                    <p>{profile.email || ""}</p>
                   </div>
                 </div>
 
@@ -495,16 +558,14 @@ function Dashboard({ user }) {
                 value={theme}
                 onChange={(e) => {
                   const selectedTheme = e.target.value;
-                  setTheme(selectedTheme); // realtime change
+                  setTheme(selectedTheme);
 
-                  // optional instant save (without clicking button)
                   supabase
                     .from("users")
                     .update({ theme: selectedTheme })
-                    .eq("id", user.uid);
+                    .eq("id", authUser.id);
                 }}
               >
-
                 <option>Light</option>
                 <option>Dark</option>
               </select>

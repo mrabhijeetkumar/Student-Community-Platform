@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { supabase } from "./supabase";
 
 import Login from "./components/Login";
 import Signup from "./components/Signup";
@@ -7,70 +8,70 @@ import Dashboard from "./components/Dashboard";
 import ForgotPassword from "./components/ForgotPassword";
 
 function App() {
-  const [user, setUser] = useState(null);
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  /* ================= LOAD USER SAFELY ================= */
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("currentUser");
-      if (saved) {
-        setUser(JSON.parse(saved));
+    // Get existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
       }
-    } catch (e) {
-      console.error("Invalid user data in storage");
-      localStorage.removeItem("currentUser");
-      setUser(null);
-    }
+    );
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
   }, []);
+
+  if (loading) return <div style={{ padding: 40 }}>Loading...</div>;
 
   return (
     <BrowserRouter>
       <Routes>
 
-        {/* ================= LOGIN ================= */}
+        {/* LOGIN */}
         <Route
           path="/login"
           element={
-            user ? (
-              <Navigate to="/dashboard" />
-            ) : (
-              <Login setUser={setUser} />
-            )
+            !session ? <Login /> : <Navigate to="/dashboard" />
           }
         />
 
-        {/* ================= SIGNUP ================= */}
+        {/* SIGNUP */}
         <Route
           path="/signup"
           element={
-            user ? <Navigate to="/dashboard" /> : <Signup />
+            !session ? <Signup /> : <Navigate to="/dashboard" />
           }
         />
 
-        {/* ================= FORGOT PASSWORD ================= */}
+        {/* FORGOT PASSWORD */}
         <Route
           path="/forgot-password"
           element={
-            user ? <Navigate to="/dashboard" /> : <ForgotPassword />
+            !session ? <ForgotPassword /> : <Navigate to="/dashboard" />
           }
         />
 
-        {/* ================= DASHBOARD (PROTECTED) ================= */}
+        {/* DASHBOARD */}
         <Route
           path="/dashboard"
           element={
-            user ? (
-              <Dashboard user={user} setUser={setUser} />
-            ) : (
-              <Navigate to="/login" />
-            )
+            session ? <Dashboard /> : <Navigate to="/login" />
           }
         />
 
-        {/* ================= DEFAULT ================= */}
+        {/* DEFAULT */}
         <Route
           path="*"
-          element={<Navigate to={user ? "/dashboard" : "/login"} />}
+          element={<Navigate to={session ? "/dashboard" : "/login"} />}
         />
 
       </Routes>
