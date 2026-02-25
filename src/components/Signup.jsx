@@ -16,15 +16,23 @@ function Signup() {
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
+          // Only run this flow if it was triggered by our signup
+          const signupFlag = localStorage.getItem("signup_in_progress");
+          if (!signupFlag) return;
+
           const { data: existingUser } = await supabase
             .from("users")
             .select("id")
             .eq("id", session.user.id)
             .maybeSingle();
 
+          const storedNameRaw = localStorage.getItem("signup_name");
+          const storedGenderRaw = localStorage.getItem("signup_gender");
+          const storedName = storedNameRaw || "";
+          const storedGender = storedGenderRaw || "Male";
+
           if (!existingUser) {
-            const storedName = localStorage.getItem("signup_name") || "";
-            const storedGender = localStorage.getItem("signup_gender") || "Male";
+            // First-time signup for this Google account
             const fallbackName =
               session.user.user_metadata?.full_name ||
               session.user.email?.split("@")[0] ||
@@ -43,11 +51,26 @@ function Signup() {
               notification: "Allow",
               photo: avatar
             });
+          } else {
+            // User already exists: if they came via signup with new values, update basic profile
+            if (storedName || storedGender) {
+              const updates = {};
+              if (storedName) updates.name = storedName;
+              if (storedGender) updates.gender = storedGender;
+
+              await supabase
+                .from("users")
+                .update(updates)
+                .eq("id", session.user.id);
+            }
           }
 
           localStorage.removeItem("signup_name");
           localStorage.removeItem("signup_gender");
-          window.location.href = "/dashboard";
+          localStorage.removeItem("signup_in_progress");
+          alert("Signup successful! Please login to continue.");
+          await supabase.auth.signOut();
+          window.location.href = "/login";
         }
       }
     );
@@ -66,6 +89,7 @@ function Signup() {
     // store values so they survive OAuth redirect
     localStorage.setItem("signup_name", name.trim());
     localStorage.setItem("signup_gender", gender);
+    localStorage.setItem("signup_in_progress", "1");
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",

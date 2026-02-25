@@ -67,15 +67,38 @@ function Dashboard() {
     if (!authUser?.id) return;
 
     const loadProfile = async () => {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("users")
         .select("*")
         .eq("id", authUser.id)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        console.error(error.message);
-        return;
+      // If no row or error, create/repair it using auth info
+      if (!data || error) {
+        const baseName =
+          authUser.user_metadata?.full_name ||
+          (authUser.email ? authUser.email.split("@")[0] : "User");
+        const avatar = authUser.user_metadata?.avatar_url || "";
+
+        const upsertPayload = {
+          id: authUser.id,
+          email: authUser.email || "",
+          name: baseName,
+          gender: "Male",
+          phone: "",
+          theme: "Light",
+          language: "Eng",
+          notification: "Allow",
+          photo: avatar
+        };
+
+        const upsertRes = await supabase
+          .from("users")
+          .upsert(upsertPayload)
+          .select()
+          .maybeSingle();
+
+        data = upsertRes.data || upsertPayload;
       }
 
       if (data) {

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../style.css";
 import loginImage from "../assets/login_image.png";
 import { supabase } from "../supabase";
-// import { FcGoogle } from "react-icons/fc";
+import { FcGoogle } from "react-icons/fc";
 
 function Login() {
   const navigate = useNavigate();
@@ -58,7 +58,23 @@ function Login() {
     };
   }, []);
 
-  // Google login removed. Only allow login for registered users.
+  /* ================= GOOGLE LOGIN ================= */
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/login",
+        },
+      });
+      if (error) {
+        alert(error.message || "Login failed ❌");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div
@@ -78,9 +94,24 @@ function Login() {
 
         <h2 className="welcome-text">Welcome Back</h2>
 
-        <div style={{ margin: '20px 0', color: '#fff', textAlign: 'center' }}>
-          Please <b>Create Account</b> first to login.<br />
-          Only registered users can login.
+        <button
+          className="login-btn"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+            marginBottom: "16px",
+          }}
+        >
+          <FcGoogle size={20} />
+          {loading ? "Redirecting..." : "Continue with Google"}
+        </button>
+
+        <div style={{ margin: '4px 0 20px', color: '#fff', textAlign: 'center', fontSize: 13 }}>
+          Please make sure you have <b>created an account</b> first.
         </div>
 
         <div className="footer-links" style={{ justifyContent: "center" }}>

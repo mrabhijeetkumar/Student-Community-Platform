@@ -11,8 +11,17 @@ function App() {
   const [session, setSession] = useState(null);
   const [validUser, setValidUser] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [signupInProgress, setSignupInProgress] = useState(false);
 
   useEffect(() => {
+    // Check if we are returning from Google after signup
+    try {
+      const flag = localStorage.getItem("signup_in_progress");
+      setSignupInProgress(!!flag);
+    } catch (e) {
+      setSignupInProgress(false);
+    }
+
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -94,7 +103,8 @@ function App() {
         <Route
           path="/signup"
           element={
-            !validUser ? <Signup /> : <Navigate to="/dashboard" />
+            // If signup is in progress (came from /signup Google OAuth), always show Signup
+            signupInProgress || !validUser ? <Signup /> : <Navigate to="/dashboard" />
           }
         />
 
