@@ -9,19 +9,65 @@ import ForgotPassword from "./components/ForgotPassword";
 
 function App() {
   const [session, setSession] = useState(null);
+  const [validUser, setValidUser] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
 
-    // Listen for auth changes
+      if (session?.user) {
+
+        // 🔐 Check if exists in users table
+        const { data } = await supabase
+          .from("users")
+          .select("id")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (data) {
+          setSession(session);
+          setValidUser(true);
+        } else {
+          // ❌ Auth user but not signed up properly
+          await supabase.auth.signOut();
+          setSession(null);
+          setValidUser(false);
+        }
+
+      } else {
+        setSession(null);
+        setValidUser(false);
+      }
+
+      setLoading(false);
+    };
+
+    checkSession();
+
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
+      async (_event, session) => {
+
+        if (session?.user) {
+          const { data } = await supabase
+            .from("users")
+            .select("id")
+            .eq("id", session.user.id)
+            .maybeSingle();
+
+          if (data) {
+            setSession(session);
+            setValidUser(true);
+          } else {
+            await supabase.auth.signOut();
+            setSession(null);
+            setValidUser(false);
+          }
+
+        } else {
+          setSession(null);
+          setValidUser(false);
+        }
       }
     );
 
@@ -40,7 +86,7 @@ function App() {
         <Route
           path="/login"
           element={
-            !session ? <Login /> : <Navigate to="/dashboard" />
+            !validUser ? <Login /> : <Navigate to="/dashboard" />
           }
         />
 
@@ -48,7 +94,7 @@ function App() {
         <Route
           path="/signup"
           element={
-            !session ? <Signup /> : <Navigate to="/dashboard" />
+            !validUser ? <Signup /> : <Navigate to="/dashboard" />
           }
         />
 
@@ -56,7 +102,7 @@ function App() {
         <Route
           path="/forgot-password"
           element={
-            !session ? <ForgotPassword /> : <Navigate to="/dashboard" />
+            !validUser ? <ForgotPassword /> : <Navigate to="/dashboard" />
           }
         />
 
@@ -64,14 +110,14 @@ function App() {
         <Route
           path="/dashboard"
           element={
-            session ? <Dashboard /> : <Navigate to="/login" />
+            validUser ? <Dashboard /> : <Navigate to="/login" />
           }
         />
 
         {/* DEFAULT */}
         <Route
           path="*"
-          element={<Navigate to={session ? "/dashboard" : "/login"} />}
+          element={<Navigate to={validUser ? "/dashboard" : "/login"} />}
         />
 
       </Routes>
