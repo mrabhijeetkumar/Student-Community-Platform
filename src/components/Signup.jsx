@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../style.css";
 import { supabase } from "../supabase";
@@ -10,74 +10,6 @@ function Signup() {
   const [gender, setGender] = useState("Male");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  /* ================= HANDLE AUTH STATE ================= */
-  useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
-          // Only run this flow if it was triggered by our signup
-          const signupFlag = localStorage.getItem("signup_in_progress");
-          if (!signupFlag) return;
-
-          const { data: existingUser } = await supabase
-            .from("users")
-            .select("id")
-            .eq("id", session.user.id)
-            .maybeSingle();
-
-          const storedNameRaw = localStorage.getItem("signup_name");
-          const storedGenderRaw = localStorage.getItem("signup_gender");
-          const storedName = storedNameRaw || "";
-          const storedGender = storedGenderRaw || "Male";
-
-          if (!existingUser) {
-            // First-time signup for this Google account
-            const fallbackName =
-              session.user.user_metadata?.full_name ||
-              session.user.email?.split("@")[0] ||
-              "User";
-            const finalName = storedName || fallbackName;
-            const avatar = session.user.user_metadata?.avatar_url || "";
-
-            await supabase.from("users").insert({
-              id: session.user.id,
-              email: session.user.email,
-              name: finalName,
-              gender: storedGender,
-              phone: "",
-              theme: "Light",
-              language: "Eng",
-              notification: "Allow",
-              photo: avatar
-            });
-          } else {
-            // User already exists: if they came via signup with new values, update basic profile
-            if (storedName || storedGender) {
-              const updates = {};
-              if (storedName) updates.name = storedName;
-              if (storedGender) updates.gender = storedGender;
-
-              await supabase
-                .from("users")
-                .update(updates)
-                .eq("id", session.user.id);
-            }
-          }
-
-          localStorage.removeItem("signup_name");
-          localStorage.removeItem("signup_gender");
-          localStorage.removeItem("signup_in_progress");
-          alert("Signup successful! Please login to continue.");
-          await supabase.auth.signOut();
-          window.location.href = "/login";
-        }
-      }
-    );
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, []);
 
   /* ================= GOOGLE SIGNUP ================= */
   const handleGoogleSignup = async () => {
