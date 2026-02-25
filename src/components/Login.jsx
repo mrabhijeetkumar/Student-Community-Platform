@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../style.css";
 import loginImage from "../assets/login_image.png";
@@ -8,55 +8,6 @@ import { FcGoogle } from "react-icons/fc";
 function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-
-  /* ================= CHECK SESSION & AUTH LISTENER ================= */
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user) {
-        const { data: existingUser } = await supabase
-          .from("users")
-          .select("id")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (!existingUser) {
-          alert("Please signup first ❌");
-          await supabase.auth.signOut();
-          return;
-        }
-
-        window.location.href = "/dashboard";
-      }
-    };
-
-    checkSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "SIGNED_IN" && session) {
-          const { data: existingUser } = await supabase
-            .from("users")
-            .select("id")
-            .eq("id", session.user.id)
-            .maybeSingle();
-
-          if (!existingUser) {
-            alert("Account not found. Please signup first ❌");
-            await supabase.auth.signOut();
-            return;
-          }
-
-          window.location.href = "/dashboard";
-        }
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
 
   /* ================= GOOGLE LOGIN ================= */
   const handleGoogleLogin = async () => {

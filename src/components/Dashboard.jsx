@@ -39,11 +39,45 @@ function Dashboard() {
 
       const { data: existingUser } = await supabase
         .from("users")
-        .select("id")
+        .select("*")
         .eq("id", user.id)
         .maybeSingle();
 
       if (!existingUser) {
+        const storedName = localStorage.getItem("signup_name");
+        const storedGender = localStorage.getItem("signup_gender") || "Male";
+        const signupFlag = localStorage.getItem("signup_in_progress");
+
+        if (storedName || signupFlag) {
+          const fallbackName =
+            storedName ||
+            user.user_metadata?.full_name ||
+            (user.email ? user.email.split("@")[0] : "User");
+          const avatar = user.user_metadata?.avatar_url || "";
+
+          await supabase.from("users").insert({
+            id: user.id,
+            email: user.email,
+            name: fallbackName,
+            gender: storedGender,
+            phone: "",
+            theme: "Light",
+            language: "Eng",
+            notification: "Allow",
+            photo: avatar
+          });
+
+          localStorage.removeItem("signup_name");
+          localStorage.removeItem("signup_gender");
+          localStorage.removeItem("signup_in_progress");
+
+          alert("Signup successful! Please login to continue.");
+          await supabase.auth.signOut();
+          window.location.href = "/login";
+          return;
+        }
+
+        alert("Please signup first ❌");
         await supabase.auth.signOut();
         window.location.href = "/signup";
         return;
@@ -67,39 +101,13 @@ function Dashboard() {
     if (!authUser?.id) return;
 
     const loadProfile = async () => {
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from("users")
         .select("*")
         .eq("id", authUser.id)
         .maybeSingle();
 
-      // If no row or error, create/repair it using auth info
-      if (!data || error) {
-        const baseName =
-          authUser.user_metadata?.full_name ||
-          (authUser.email ? authUser.email.split("@")[0] : "User");
-        const avatar = authUser.user_metadata?.avatar_url || "";
-
-        const upsertPayload = {
-          id: authUser.id,
-          email: authUser.email || "",
-          name: baseName,
-          gender: "Male",
-          phone: "",
-          theme: "Light",
-          language: "Eng",
-          notification: "Allow",
-          photo: avatar
-        };
-
-        const upsertRes = await supabase
-          .from("users")
-          .upsert(upsertPayload)
-          .select()
-          .maybeSingle();
-
-        data = upsertRes.data || upsertPayload;
-      }
+      if (error || !data) return;
 
       if (data) {
         const fallbackName =
