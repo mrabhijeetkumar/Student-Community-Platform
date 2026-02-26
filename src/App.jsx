@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { supabase } from "./supabase";
+import { getSession, onAuthStateChange } from "./mongodb";
 
 import Login from "./components/Login";
 import Signup from "./components/Signup";
@@ -9,88 +9,31 @@ import ForgotPassword from "./components/ForgotPassword";
 
 function App() {
   const [session, setSession] = useState(null);
-  const [validUser, setValidUser] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    setSession(getSession());
+    setLoading(false);
 
-      if (session?.user) {
-        setSession(session);
-        setValidUser(true);
-      } else {
-        setSession(null);
-        setValidUser(false);
-      }
+    const { subscription } = onAuthStateChange((_event, latestSession) => {
+      setSession(latestSession);
+    });
 
-      setLoading(false);
-    };
-
-    checkSession();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-
-        if (session?.user) {
-          setSession(session);
-          setValidUser(true);
-        } else {
-          setSession(null);
-          setValidUser(false);
-        }
-      }
-    );
-
-    return () => {
-      listener.subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>;
 
+  const validUser = Boolean(session?.user);
+
   return (
     <BrowserRouter>
       <Routes>
-
-        {/* LOGIN */}
-        <Route
-          path="/login"
-          element={
-            !validUser ? <Login /> : <Navigate to="/dashboard" />
-          }
-        />
-
-        {/* SIGNUP */}
-        <Route
-          path="/signup"
-          element={
-            !validUser ? <Signup /> : <Navigate to="/dashboard" />
-          }
-        />
-
-        {/* FORGOT PASSWORD */}
-        <Route
-          path="/forgot-password"
-          element={
-            !validUser ? <ForgotPassword /> : <Navigate to="/dashboard" />
-          }
-        />
-
-        {/* DASHBOARD */}
-        <Route
-          path="/dashboard"
-          element={
-            validUser ? <Dashboard /> : <Navigate to="/login" />
-          }
-        />
-
-        {/* DEFAULT */}
-        <Route
-          path="*"
-          element={<Navigate to={validUser ? "/dashboard" : "/login"} />}
-        />
-
+        <Route path="/login" element={!validUser ? <Login /> : <Navigate to="/dashboard" />} />
+        <Route path="/signup" element={!validUser ? <Signup /> : <Navigate to="/dashboard" />} />
+        <Route path="/forgot-password" element={!validUser ? <ForgotPassword /> : <Navigate to="/dashboard" />} />
+        <Route path="/dashboard" element={validUser ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="*" element={<Navigate to={validUser ? "/dashboard" : "/login"} />} />
       </Routes>
     </BrowserRouter>
   );
