@@ -180,7 +180,6 @@ function Dashboard() {
       name: profile.name,
       phone: profile.phone,
       gender: profile.gender,
-      photo: profile.photo,
       skills: profile.skills,
     });
     alert("Profile updated");
@@ -207,15 +206,6 @@ function Dashboard() {
     anchor.download = "student-community-portfolio.json";
     anchor.click();
     URL.revokeObjectURL(url);
-  };
-
-  const handlePhotoChange = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => setProfile((prev) => ({ ...prev, photo: reader.result }));
-    reader.readAsDataURL(file);
   };
 
   const handleLogout = () => {
@@ -374,11 +364,9 @@ function Dashboard() {
             <div className="profile-modern-wrap">
               <div className="profile-summary-card">
                 <div className="profile-avatar-wrap">
-                  {profile.photo ? <img src={profile.photo} alt="Profile" className="profile-avatar" /> : <div className="profile-avatar placeholder">👤</div>}
-                  <label className="upload-chip">
-                    Change photo
-                    <input type="file" accept="image/*" onChange={handlePhotoChange} />
-                  </label>
+                  <div className="profile-avatar placeholder">
+                    {(profile.name || "U").trim().charAt(0).toUpperCase()}
+                  </div>
                 </div>
 
                 <h3>{profile.name || "Your Name"}</h3>

@@ -1426,31 +1426,15 @@ select:focus {
 .profile-avatar {
   width: 110px;
   height: 110px;
-  object-fit: cover;
   border-radius: 50%;
   border: 3px solid #38bdf8;
-}
-
-.profile-avatar.placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 40px;
-  background: rgba(30, 41, 59, 0.8);
-}
-
-.upload-chip {
-  background: rgba(59, 130, 246, 0.18);
-  border: 1px solid rgba(56, 189, 248, 0.45);
-  color: #bae6fd;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.upload-chip input {
-  display: none;
+  font-weight: 700;
+  color: #e0f2fe;
+  background: radial-gradient(circle at 30% 20%, #1d4ed8, #0f172a 70%);
 }
 
 .profile-mini-stats {
