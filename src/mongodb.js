@@ -10,6 +10,17 @@ const AUTH_EVENT = "auth_state_change";
 
 const hasAtlasConfig = Boolean(DATA_API_BASE_URL && DATA_API_KEY);
 
+function validateGmailAddress(email) {
+  const cleanEmail = email.trim().toLowerCase();
+  const gmailPattern = /^[a-z0-9](?:[a-z0-9._%+-]{0,62}[a-z0-9])?@gmail\.com$/i;
+
+  if (!gmailPattern.test(cleanEmail)) {
+    throw new Error("Please use a valid Google Gmail address (@gmail.com only)");
+  }
+
+  return cleanEmail;
+}
+
 const getLocalUsers = () => JSON.parse(localStorage.getItem("users") || "[]");
 const setLocalUsers = (users) => localStorage.setItem("users", JSON.stringify(users));
 
@@ -42,7 +53,7 @@ async function dataApi(action, payload) {
 }
 
 export async function registerUser({ name, email, password, gender }) {
-  const cleanEmail = email.trim().toLowerCase();
+  const cleanEmail = validateGmailAddress(email);
   const passwordHash = CryptoJS.SHA256(password).toString();
 
   if (!hasAtlasConfig) {
@@ -97,7 +108,7 @@ export async function registerUser({ name, email, password, gender }) {
 }
 
 export async function loginUser({ email, password }) {
-  const cleanEmail = email.trim().toLowerCase();
+  const cleanEmail = validateGmailAddress(email);
   const passwordHash = CryptoJS.SHA256(password).toString();
 
   let user = null;
@@ -249,7 +260,7 @@ export async function updatePost(postId, updates) {
 }
 
 export async function resetPassword({ email, newPassword }) {
-  const cleanEmail = email.trim().toLowerCase();
+  const cleanEmail = validateGmailAddress(email);
   const passwordHash = CryptoJS.SHA256(newPassword).toString();
 
   if (!hasAtlasConfig) {

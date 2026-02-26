@@ -19,6 +19,11 @@ function Signup() {
       return;
     }
 
+    if (!email.trim().toLowerCase().endsWith("@gmail.com")) {
+      setError("Only verified Google Gmail addresses (@gmail.com) are allowed");
+      return;
+    }
+
     try {
       setLoading(true);
       await registerUser({ name, email, password, gender });
@@ -37,7 +42,7 @@ function Signup() {
         <h2 style={{ color: "#fff", marginBottom: 18 }}>Create account</h2>
 
         <input className="login-input" type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="login-input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input className="login-input" type="email" placeholder="Google Gmail (example@gmail.com)" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input className="login-input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
 
         <div style={{ color: "#fff", marginBottom: 14 }}>
