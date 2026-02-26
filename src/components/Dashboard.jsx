@@ -5,7 +5,9 @@ import {
   getSession,
   getUserProfile,
   listPosts,
+  listUsers,
   signOut,
+  subscribeToCommunityUpdates,
   updatePost,
   updateUserProfile,
 } from "../mongodb";
@@ -50,6 +52,7 @@ function Dashboard() {
   const [commentText, setCommentText] = useState({});
   const [bookmarks, setBookmarks] = useState([]);
   const [posts, setPosts] = useState([]);
+  const [usersById, setUsersById] = useState({});
   const [profile, setProfile] = useState({ name: "", email: "", phone: "", gender: "Male", photo: "", skills: "" });
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
 
@@ -70,8 +73,8 @@ function Dashboard() {
     const savedBookmarks = JSON.parse(localStorage.getItem(`bookmarks_${authUser.id}`) || "[]");
     setBookmarks(savedBookmarks);
 
-    const load = async () => {
-      const [user, postRows] = await Promise.all([getUserProfile(authUser.id), listPosts()]);
+    const hydrateDashboard = async () => {
+      const [user, postRows, allUsers] = await Promise.all([getUserProfile(authUser.id), listPosts(), listUsers()]);
 
       if (user) {
         setProfile({
@@ -84,6 +87,16 @@ function Dashboard() {
         });
       }
 
+      setUsersById(
+        allUsers.reduce((accumulator, item) => {
+          accumulator[item.id] = {
+            name: item.name || "Community Member",
+            photo: item.photo || "",
+          };
+          return accumulator;
+        }, {})
+      );
+
       setPosts(
         postRows.map((p) => ({
           ...p,
@@ -95,14 +108,19 @@ function Dashboard() {
       );
     };
 
-    load();
+    hydrateDashboard();
+    const unsubscribeLive = subscribeToCommunityUpdates(hydrateDashboard);
+
+    return () => {
+      unsubscribeLive();
+    };
   }, [authUser]);
 
   const postsWithUser = useMemo(() => {
     const decorated = posts.map((post) => ({
       ...post,
       score: post.likes.length * 2 + post.comments.length,
-      userName: post.user_id === authUser?.id ? profile.name || "You" : "Community Member",
+      userName: usersById[post.user_id]?.name || "Community Member",
     }));
 
     const keyword = search.trim().toLowerCase();
@@ -119,7 +137,7 @@ function Dashboard() {
       if (sortBy === "trending") return b.score - a.score;
       return new Date(b.created_at) - new Date(a.created_at);
     });
-  }, [posts, authUser, profile.name, search, sortBy]);
+  }, [posts, usersById, search, sortBy]);
 
   const analytics = useMemo(() => {
     if (!authUser?.id) return { myPosts: 0, myLikesReceived: 0, myCommentsReceived: 0, streakDays: 0 };
@@ -183,15 +201,43 @@ function Dashboard() {
     setCommentText((prev) => ({ ...prev, [post.id]: "" }));
   };
 
+  const deletePost = async (post) => {
+    if (!authUser?.id || post.user_id !== authUser.id) return;
+
+    const shouldDelete = window.confirm("Are you sure you want to delete this post?");
+    if (!shouldDelete) return;
+
+    await updatePost(post.id, { deleted: true });
+    setPosts((prev) => prev.filter((item) => item.id !== post.id));
+    setCommentText((prev) => {
+      const next = { ...prev };
+      delete next[post.id];
+      return next;
+    });
+  };
+
   const saveProfile = async () => {
     if (!authUser?.id) return;
-    await updateUserProfile(authUser.id, {
+    const updatedUser = await updateUserProfile(authUser.id, {
       name: profile.name,
       phone: profile.phone,
       gender: profile.gender,
       skills: profile.skills,
       photo: profile.photo,
     });
+
+    if (updatedUser) {
+      setAuthUser((previous) => (previous ? { ...previous, name: updatedUser.name || previous.name } : previous));
+      setUsersById((previous) => ({
+        ...previous,
+        [authUser.id]: {
+          ...(previous[authUser.id] || {}),
+          name: updatedUser.name || "Community Member",
+          photo: updatedUser.photo || "",
+        },
+      }));
+    }
+
     alert("Profile updated");
   };
 
@@ -312,9 +358,16 @@ function Dashboard() {
                       <p>
                         <b>{post.userName}</b> · <span className="post-time">{formatDate(post.created_at)}</span>
                       </p>
-                      <button className="bookmark-btn" onClick={() => toggleBookmark(post.id)}>
-                        {bookmarks.includes(post.id) ? "★ Saved" : "☆ Save"}
-                      </button>
+                      <div className="post-head-actions">
+                        {post.user_id === authUser?.id && (
+                          <button className="delete-post-btn" onClick={() => deletePost(post)}>
+                            Delete
+                          </button>
+                        )}
+                        <button className="bookmark-btn" onClick={() => toggleBookmark(post.id)}>
+                          {bookmarks.includes(post.id) ? "★ Saved" : "☆ Save"}
+                        </button>
+                      </div>
                     </div>
 
                     <span className="category-chip" style={{ background: CATEGORY_COLORS[post.category] || "#475569" }}>
@@ -338,7 +391,7 @@ function Dashboard() {
 
                     <div style={{ marginTop: 12 }}>
                       {post.comments.map((comment, index) => (
-                        <p key={`${post.id}-${index}`}>💬 {comment.text}</p>
+                        <p key={`${post.id}-${index}`}>💬 <b>{usersById[comment.user_id]?.name || "Community Member"}</b>: {comment.text}</p>
                       ))}
                     </div>
 
