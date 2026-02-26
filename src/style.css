@@ -1346,6 +1346,26 @@ select:focus {
   cursor: pointer;
 }
 
+.post-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.delete-post-btn {
+  background: rgba(127, 29, 29, 0.26);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  color: #fecaca;
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.delete-post-btn:hover {
+  background: rgba(127, 29, 29, 0.4);
+  border-color: rgba(248, 113, 113, 0.8);
+}
+
 .opportunity-card {
   display: flex;
   justify-content: space-between;

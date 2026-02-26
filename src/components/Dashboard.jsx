@@ -201,6 +201,21 @@ function Dashboard() {
     setCommentText((prev) => ({ ...prev, [post.id]: "" }));
   };
 
+  const deletePost = async (post) => {
+    if (!authUser?.id || post.user_id !== authUser.id) return;
+
+    const shouldDelete = window.confirm("Are you sure you want to delete this post?");
+    if (!shouldDelete) return;
+
+    await updatePost(post.id, { deleted: true });
+    setPosts((prev) => prev.filter((item) => item.id !== post.id));
+    setCommentText((prev) => {
+      const next = { ...prev };
+      delete next[post.id];
+      return next;
+    });
+  };
+
   const saveProfile = async () => {
     if (!authUser?.id) return;
     const updatedUser = await updateUserProfile(authUser.id, {
@@ -343,9 +358,16 @@ function Dashboard() {
                       <p>
                         <b>{post.userName}</b> · <span className="post-time">{formatDate(post.created_at)}</span>
                       </p>
-                      <button className="bookmark-btn" onClick={() => toggleBookmark(post.id)}>
-                        {bookmarks.includes(post.id) ? "★ Saved" : "☆ Save"}
-                      </button>
+                      <div className="post-head-actions">
+                        {post.user_id === authUser?.id && (
+                          <button className="delete-post-btn" onClick={() => deletePost(post)}>
+                            Delete
+                          </button>
+                        )}
+                        <button className="bookmark-btn" onClick={() => toggleBookmark(post.id)}>
+                          {bookmarks.includes(post.id) ? "★ Saved" : "☆ Save"}
+                        </button>
+                      </div>
                     </div>
 
                     <span className="category-chip" style={{ background: CATEGORY_COLORS[post.category] || "#475569" }}>
