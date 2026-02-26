@@ -438,7 +438,7 @@ function Dashboard() {
 
           {activeTab === "profile" && (
             <div className="profile-section" style={{ maxWidth: 600 }}>
-              {/* <h3>Your Profile</h3>
+              <h3>Your Profile</h3>
               <input type="text" value={profile.name} onChange={(event) => setProfile((prev) => ({ ...prev, name: event.target.value }))} placeholder="Name" />
               <input type="email" value={profile.email} disabled placeholder="Email" />
               <input type="text" value={profile.phone} onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))} placeholder="Phone" />
@@ -450,7 +450,7 @@ function Dashboard() {
               </select>
               <input type="file" accept="image/*" onChange={handlePhotoChange} />
               {profile.photo && <img src={profile.photo} alt="Profile" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: "50%" }} />}
-              <button onClick={saveProfile}>Save Profile</button> */}
+              <button onClick={saveProfile}>Save Profile</button> 
             </div>
           )}
         </div>
