@@ -207,11 +207,13 @@ export async function listPosts() {
   return documents || [];
 }
 
-export async function createPost({ userId, content }) {
+export async function createPost({ userId, content, category = "Project", tags = [] }) {
   const post = {
     id: crypto.randomUUID(),
     user_id: userId,
     content,
+    category,
+    tags,
     likes: [],
     comments: [],
     deleted: false,

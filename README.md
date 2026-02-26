@@ -25,3 +25,12 @@ If these env vars are not provided, the app falls back to localStorage for local
 - `npm start`
 - `npm run build`
 - `npm test`
+
+## Modern resume-ready features added
+
+- Smart Feed with search (`text/category/#tags`) and `Latest/Trending` ranking
+- Post categories (`Project`, `Announcement`, `Doubt/Help`, `Career/Internship`)
+- Saved posts (bookmarks) per user
+- Opportunities board (internships, open source, hackathons)
+- Impact analytics dashboard (posts, likes, comments, consistency streak)
+- Profile skills field + portfolio JSON export for resume attachments
