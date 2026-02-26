@@ -16,6 +16,11 @@ function Login() {
       return;
     }
 
+    if (!email.trim().toLowerCase().endsWith("@gmail.com")) {
+      alert("Only verified Google Gmail addresses (@gmail.com) are allowed");
+      return;
+    }
+
     try {
       setLoading(true);
       await loginUser({ email, password });
@@ -35,7 +40,7 @@ function Login() {
         <input
           className="login-input"
           type="email"
-          placeholder="Email"
+          placeholder="Google Gmail (example@gmail.com)"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
