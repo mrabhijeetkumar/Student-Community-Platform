@@ -19,6 +19,11 @@ function Signup() {
       return;
     }
 
+    if (!email.trim().toLowerCase().endsWith("@gmail.com")) {
+      setError("Only verified Google Gmail addresses (@gmail.com) are allowed");
+      return;
+    }
+
     try {
       setLoading(true);
       await registerUser({ name, email, password, gender });
@@ -32,25 +37,25 @@ function Signup() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #1a237e 0%, #283593 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: "linear-gradient(135deg, #2333a0 0%, #2d6cdf 100%)", borderRadius: 24, boxShadow: "0 8px 32px #0003", padding: 44, width: 420, maxWidth: "95vw" }}>
-        <h2 style={{ color: "#fff", marginBottom: 18 }}>Create account</h2>
+    <div className="auth-page">
+      <div className="login-card signup-card">
+        <h2 className="welcome-text">Create account</h2>
 
         <input className="login-input" type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="login-input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input className="login-input" type="email" placeholder="Google Gmail (example@gmail.com)" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input className="login-input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
 
-        <div style={{ color: "#fff", marginBottom: 14 }}>
+        <div className="signup-gender-row">
           <label><input type="radio" value="Male" checked={gender === "Male"} onChange={(e) => setGender(e.target.value)} /> Male</label>
-          <label style={{ marginLeft: 20 }}><input type="radio" value="Female" checked={gender === "Female"} onChange={(e) => setGender(e.target.value)} /> Female</label>
+          <label><input type="radio" value="Female" checked={gender === "Female"} onChange={(e) => setGender(e.target.value)} /> Female</label>
         </div>
 
-        {error && <div style={{ color: "#ffd7d7", marginBottom: 12 }}>{error}</div>}
+        {error && <div className="auth-error">{error}</div>}
 
         <button className="login-btn" onClick={handleSignup} disabled={loading}>{loading ? "Creating..." : "Create Account"}</button>
 
-        <div style={{ color: "#fff", marginTop: 14 }}>
-          Already have an account? <span style={{ textDecoration: "underline", cursor: "pointer" }} onClick={() => navigate("/login")}>Log in</span>
+        <div className="auth-switch-link">
+          Already have an account? <span onClick={() => navigate("/login")}>Log in</span>
         </div>
       </div>
     </div>

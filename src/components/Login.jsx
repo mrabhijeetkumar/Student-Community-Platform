@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../style.css";
-import loginImage from "../assets/login_image.png";
 import { loginUser } from "../mongodb";
 
 function Login() {
@@ -13,6 +12,11 @@ function Login() {
   const handleLogin = async () => {
     if (!email || !password) {
       alert("Please enter email and password");
+      return;
+    }
+
+    if (!email.trim().toLowerCase().endsWith("@gmail.com")) {
+      alert("Only verified Google Gmail addresses (@gmail.com) are allowed");
       return;
     }
 
@@ -28,14 +32,14 @@ function Login() {
   };
 
   return (
-    <div className="login-page" style={{ backgroundImage: `url(${loginImage})` }}>
+    <div className="login-page">
       <div className="login-card">
         <h2 className="welcome-text">Welcome Back</h2>
 
         <input
           className="login-input"
           type="email"
-          placeholder="Email"
+          placeholder="Google Gmail (example@gmail.com)"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />

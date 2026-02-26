@@ -1637,3 +1637,175 @@ select:focus {
     grid-template-columns: 1fr;
   }
 }
+
+/* =====================================================
+   CLEAN INDUSTRY THEME OVERRIDES (NO ANIMATION)
+   ===================================================== */
+:root {
+  --brand-primary: #2563eb;
+  --brand-primary-dark: #1d4ed8;
+  --brand-surface: #ffffff;
+  --brand-surface-soft: #f8fafc;
+  --brand-border: #dbe3ef;
+  --brand-text: #0f172a;
+  --brand-muted: #64748b;
+  --brand-danger: #dc2626;
+  --brand-success: #16a34a;
+}
+
+* {
+  animation: none !important;
+}
+
+body {
+  background: #eef2ff !important;
+  color: var(--brand-text) !important;
+}
+
+body::before {
+  display: none !important;
+}
+
+.login-page,
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%) !important;
+}
+
+.login-page::before {
+  display: none !important;
+}
+
+.login-card,
+.signup-card {
+  background: var(--brand-surface) !important;
+  border: 1px solid var(--brand-border) !important;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08) !important;
+  border-radius: 18px !important;
+  color: var(--brand-text) !important;
+}
+
+.login-card::before,
+.login-btn::after {
+  display: none !important;
+}
+
+.welcome-text,
+.login-title {
+  color: var(--brand-text) !important;
+}
+
+.login-input {
+  background: var(--brand-surface-soft) !important;
+  color: var(--brand-text) !important;
+  border: 1px solid var(--brand-border) !important;
+  padding-left: 16px !important;
+  border-radius: 12px !important;
+}
+
+.login-input::placeholder {
+  color: var(--brand-muted) !important;
+}
+
+.login-input:focus {
+  border-color: var(--brand-primary) !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16) !important;
+}
+
+.login-btn,
+button {
+  background: var(--brand-primary) !important;
+  color: #fff !important;
+  border-radius: 12px !important;
+  border: none !important;
+  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.2) !important;
+}
+
+.login-btn:hover,
+button:hover {
+  background: var(--brand-primary-dark) !important;
+  transform: none !important;
+}
+
+.footer-links,
+.auth-switch-link {
+  color: var(--brand-muted) !important;
+}
+
+.auth-switch-link span,
+.footer-links span,
+.forgot-password,
+.create-acc {
+  color: var(--brand-primary) !important;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+.signup-gender-row {
+  margin-bottom: 14px;
+  display: flex;
+  gap: 18px;
+  color: var(--brand-text);
+}
+
+.auth-error {
+  color: var(--brand-danger);
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.topbar,
+.sidebar,
+.card-box,
+.post-card,
+.profile-sidebar,
+.profile-details,
+.menu-box {
+  background: var(--brand-surface) !important;
+  border: 1px solid var(--brand-border) !important;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06) !important;
+  color: var(--brand-text) !important;
+}
+
+.sidebar p,
+.post-user p,
+.topbar-subtitle,
+.content p {
+  color: var(--brand-muted) !important;
+}
+
+.sidebar p.active {
+  background: #eff6ff !important;
+  color: var(--brand-primary-dark) !important;
+  border-left: 3px solid var(--brand-primary-dark) !important;
+}
+
+.content h1,
+.content h2,
+.content h3,
+.topbar h3,
+.post-user h4 {
+  color: var(--brand-text) !important;
+}
+
+input,
+textarea,
+select {
+  background: #fff !important;
+  color: var(--brand-text) !important;
+  border: 1px solid var(--brand-border) !important;
+  border-radius: 10px !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--brand-primary) !important;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16) !important;
+}

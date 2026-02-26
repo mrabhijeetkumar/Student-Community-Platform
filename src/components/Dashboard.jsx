@@ -192,6 +192,17 @@ function Dashboard() {
     alert("Profile updated");
   };
 
+  const handlePhotoChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfile((prev) => ({ ...prev, photo: String(reader.result || "") }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const exportPortfolio = () => {
     const summary = {
       name: profile.name,
