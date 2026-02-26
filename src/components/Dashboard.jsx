@@ -432,6 +432,25 @@ function Dashboard() {
 
                 <button className="save-profile-btn" onClick={saveProfile}>Save Profile</button>
               </div>
+              <button onClick={exportPortfolio}>Export Resume-ready Portfolio JSON</button>
+            </div>
+          )}
+
+          {activeTab === "profile" && (
+            <div className="profile-section" style={{ maxWidth: 600 }}>
+              <h3>Your Profile</h3>
+              <input type="text" value={profile.name} onChange={(event) => setProfile((prev) => ({ ...prev, name: event.target.value }))} placeholder="Name" />
+              <input type="email" value={profile.email} disabled placeholder="Email" />
+              <input type="text" value={profile.phone} onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))} placeholder="Phone" />
+              <input type="text" value={profile.skills} onChange={(event) => setProfile((prev) => ({ ...prev, skills: event.target.value }))} placeholder="Skills (React, Node, DSA, etc.)" />
+              <select value={profile.gender} onChange={(event) => setProfile((prev) => ({ ...prev, gender: event.target.value }))}>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+              <input type="file" accept="image/*" onChange={handlePhotoChange} />
+              {profile.photo && <img src={profile.photo} alt="Profile" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: "50%" }} />}
+              <button onClick={saveProfile}>Save Profile</button>
             </div>
           )}
         </div>
