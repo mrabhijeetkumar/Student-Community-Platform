@@ -371,6 +371,84 @@ function Dashboard() {
           )}
 
           {activeTab === "profile" && (
+            <div className="profile-modern-wrap">
+              <div className="profile-summary-card">
+                <div className="profile-avatar-wrap">
+                  {profile.photo ? <img src={profile.photo} alt="Profile" className="profile-avatar" /> : <div className="profile-avatar placeholder">👤</div>}
+                  <label className="upload-chip">
+                    Change photo
+                    <input type="file" accept="image/*" onChange={handlePhotoChange} />
+                  </label>
+                </div>
+
+                <h3>{profile.name || "Your Name"}</h3>
+                <p>{profile.email || "email@example.com"}</p>
+
+                <div className="profile-mini-stats">
+                  <div>
+                    <span>{analytics.myPosts}</span>
+                    <small>Posts</small>
+                  </div>
+                  <div>
+                    <span>{analytics.myLikesReceived}</span>
+                    <small>Likes</small>
+                  </div>
+                  <div>
+                    <span>{analytics.streakDays}</span>
+                    <small>Streak</small>
+                  </div>
+                </div>
+              </div>
+
+              <div className="profile-edit-card">
+                <div className="profile-heading">
+                  <h3>Profile Details</h3>
+                  <p>Make your profile stand out to recruiters and peers.</p>
+                </div>
+
+                <div className="profile-form-grid">
+                  <div>
+                    <label>Full Name</label>
+                    <input type="text" value={profile.name} onChange={(event) => setProfile((prev) => ({ ...prev, name: event.target.value }))} placeholder="Enter your full name" />
+                  </div>
+
+                  <div>
+                    <label>Email</label>
+                    <input type="email" value={profile.email} disabled placeholder="Email" />
+                  </div>
+
+                  <div>
+                    <label>Phone</label>
+                    <input type="text" value={profile.phone} onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))} placeholder="+91 98xxxxxx" />
+                  </div>
+
+                  <div>
+                    <label>Gender</label>
+                    <select value={profile.gender} onChange={(event) => setProfile((prev) => ({ ...prev, gender: event.target.value }))}>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label>Skills</label>
+                  <input
+                    type="text"
+                    value={profile.skills}
+                    onChange={(event) => setProfile((prev) => ({ ...prev, skills: event.target.value }))}
+                    placeholder="React, Node.js, MongoDB, DSA, UI/UX"
+                  />
+                </div>
+
+                <button className="save-profile-btn" onClick={saveProfile}>Save Profile</button>
+              </div>
+              <button onClick={exportPortfolio}>Export Resume-ready Portfolio JSON</button>
+            </div>
+          )}
+
+          {activeTab === "profile" && (
             <div className="profile-section" style={{ maxWidth: 600 }}>
               <h3>Your Profile</h3>
               <input type="text" value={profile.name} onChange={(event) => setProfile((prev) => ({ ...prev, name: event.target.value }))} placeholder="Name" />
