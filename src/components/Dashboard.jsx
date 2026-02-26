@@ -137,6 +137,12 @@ function Dashboard() {
     return { myPosts: mine.length, myLikesReceived, myCommentsReceived, streakDays: days.size };
   }, [posts, authUser]);
 
+  const profileCompletion = useMemo(() => {
+    const fields = [profile.name, profile.phone, profile.gender, profile.skills, profile.photo];
+    const completed = fields.filter((field) => String(field || "").trim()).length;
+    return Math.round((completed / fields.length) * 100);
+  }, [profile]);
+
   const toggleBookmark = (postId) => {
     if (!authUser?.id) return;
     const updated = bookmarks.includes(postId) ? bookmarks.filter((id) => id !== postId) : [...bookmarks, postId];
@@ -181,6 +187,7 @@ function Dashboard() {
       phone: profile.phone,
       gender: profile.gender,
       skills: profile.skills,
+      photo: profile.photo,
     });
     alert("Profile updated");
   };
@@ -216,7 +223,10 @@ function Dashboard() {
   return (
     <div className="dashboard-container">
       <div className="topbar modern-topbar">
-        <h3>Student Community Platform</h3>
+        <div>
+          <h3>Student Community Platform</h3>
+          <p className="topbar-subtitle">Build. Network. Get hired.</p>
+        </div>
         <div className="topbar-actions">
           <button onClick={() => setActiveTab("analytics")}>📈 Analytics</button>
           <button onClick={handleLogout}>Logout</button>
@@ -225,10 +235,10 @@ function Dashboard() {
 
       <div className="dashboard-body">
         <div className="sidebar">
-          <p onClick={() => setActiveTab("feed")}>🏠 Smart Feed</p>
-          <p onClick={() => setActiveTab("bookmarks")}>🔖 Saved Posts</p>
-          <p onClick={() => setActiveTab("opportunities")}>🚀 Opportunities</p>
-          <p onClick={() => setActiveTab("profile")}>👤 Profile</p>
+          <button className={`sidebar-nav-btn ${activeTab === "feed" ? "active" : ""}`} onClick={() => setActiveTab("feed")}>🏠 Smart Feed</button>
+          <button className={`sidebar-nav-btn ${activeTab === "bookmarks" ? "active" : ""}`} onClick={() => setActiveTab("bookmarks")}>🔖 Saved Posts</button>
+          <button className={`sidebar-nav-btn ${activeTab === "opportunities" ? "active" : ""}`} onClick={() => setActiveTab("opportunities")}>🚀 Opportunities</button>
+          <button className={`sidebar-nav-btn ${activeTab === "profile" ? "active" : ""}`} onClick={() => setActiveTab("profile")}>👤 Profile</button>
         </div>
 
         <div className="content">
@@ -364,13 +374,25 @@ function Dashboard() {
             <div className="profile-modern-wrap">
               <div className="profile-summary-card">
                 <div className="profile-avatar-wrap">
-                  <div className="profile-avatar placeholder">
-                    {(profile.name || "U").trim().charAt(0).toUpperCase()}
-                  </div>
+                  {profile.photo ? (
+                    <img className="profile-avatar" src={profile.photo} alt="Profile" />
+                  ) : (
+                    <div className="profile-avatar placeholder">
+                      {(profile.name || "U").trim().charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
 
                 <h3>{profile.name || "Your Name"}</h3>
                 <p>{profile.email || "email@example.com"}</p>
+
+                <div className="profile-completion-card">
+                  <p>Profile Strength</p>
+                  <div className="profile-progress-track">
+                    <div className="profile-progress-fill" style={{ width: `${profileCompletion}%` }} />
+                  </div>
+                  <small>{profileCompletion}% complete</small>
+                </div>
 
                 <div className="profile-mini-stats">
                   <div>
@@ -417,6 +439,26 @@ function Dashboard() {
                       <option value="Female">Female</option>
                       <option value="Other">Other</option>
                     </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label>Photo URL (Optional)</label>
+                  <div className="photo-row">
+                    <input
+                      type="url"
+                      value={profile.photo}
+                      onChange={(event) => setProfile((prev) => ({ ...prev, photo: event.target.value }))}
+                      placeholder="https://your-image-link.com/profile.jpg"
+                    />
+                    <button
+                      type="button"
+                      className="remove-photo-btn"
+                      onClick={() => setProfile((prev) => ({ ...prev, photo: "" }))}
+                      disabled={!profile.photo}
+                    >
+                      Remove Photo
+                    </button>
                   </div>
                 </div>
 
