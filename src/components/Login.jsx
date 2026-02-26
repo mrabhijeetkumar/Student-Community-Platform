@@ -32,9 +32,10 @@ function Login() {
   };
 
   return (
-    <div className="login-page">
-      <div className="login-card">
+    <div className="auth-page">
+      <div className="login-card auth-card">
         <h2 className="welcome-text">Welcome Back</h2>
+        <p className="auth-subtext">Sign in to continue building with your student community.</p>
 
         <input
           className="login-input"
@@ -48,7 +49,7 @@ function Login() {
         <input
           className="login-input"
           type="password"
-          placeholder=" Enter password"
+          placeholder="Enter password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
