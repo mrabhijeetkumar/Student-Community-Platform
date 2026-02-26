@@ -6,7 +6,10 @@ const DATA_SOURCE = process.env.REACT_APP_MONGODB_DATA_SOURCE || "Cluster0";
 const DATABASE = process.env.REACT_APP_MONGODB_DATABASE || "student_community";
 
 const SESSION_KEY = "auth_session";
+const USERS_KEY = "users";
+const POSTS_KEY = "posts";
 const AUTH_EVENT = "auth_state_change";
+const DATA_EVENT = "community_data_change";
 
 const hasAtlasConfig = Boolean(DATA_API_BASE_URL && DATA_API_KEY);
 
@@ -21,14 +24,24 @@ function validateGmailAddress(email) {
   return cleanEmail;
 }
 
-const getLocalUsers = () => JSON.parse(localStorage.getItem("users") || "[]");
-const setLocalUsers = (users) => localStorage.setItem("users", JSON.stringify(users));
+const getLocalUsers = () => JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
+const setLocalUsers = (users) => {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  emitDataChange("users");
+};
 
-const getLocalPosts = () => JSON.parse(localStorage.getItem("posts") || "[]");
-const setLocalPosts = (posts) => localStorage.setItem("posts", JSON.stringify(posts));
+const getLocalPosts = () => JSON.parse(localStorage.getItem(POSTS_KEY) || "[]");
+const setLocalPosts = (posts) => {
+  localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
+  emitDataChange("posts");
+};
 
 const emitAuthChange = (session) => {
   window.dispatchEvent(new CustomEvent(AUTH_EVENT, { detail: session }));
+};
+
+const emitDataChange = (scope = "all") => {
+  window.dispatchEvent(new CustomEvent(DATA_EVENT, { detail: { scope, at: Date.now() } }));
 };
 
 async function dataApi(action, payload) {
@@ -183,13 +196,55 @@ export async function getUserProfile(userId) {
   return document || null;
 }
 
+export async function listUsers() {
+  if (!hasAtlasConfig) {
+    return getLocalUsers();
+  }
+
+  const { documents } = await dataApi("find", {
+    collection: "users",
+    filter: {},
+    projection: {
+      _id: 0,
+      id: 1,
+      name: 1,
+      email: 1,
+      photo: 1,
+      gender: 1,
+      phone: 1,
+      skills: 1,
+      theme: 1,
+      language: 1,
+      notification: 1,
+    },
+  });
+
+  return documents || [];
+}
+
 export async function updateUserProfile(userId, updates) {
   if (!hasAtlasConfig) {
     const users = getLocalUsers();
     const index = users.findIndex((u) => u.id === userId);
-    if (index === -1) return;
+    if (index === -1) return null;
     users[index] = { ...users[index], ...updates };
     setLocalUsers(users);
+
+    const session = getSession();
+    if (session?.user?.id === userId) {
+      const nextSession = {
+        user: {
+          ...session.user,
+          name: users[index].name || session.user.name,
+          phone: users[index].phone || "",
+          photo: users[index].photo || "",
+          gender: users[index].gender || "Male",
+        },
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+      emitAuthChange(nextSession);
+    }
+
     return users[index];
   }
 
@@ -199,7 +254,25 @@ export async function updateUserProfile(userId, updates) {
     update: { $set: updates },
   });
 
-  return getUserProfile(userId);
+  const updatedUser = await getUserProfile(userId);
+
+  const session = getSession();
+  if (session?.user?.id === userId && updatedUser) {
+    const nextSession = {
+      user: {
+        ...session.user,
+        name: updatedUser.name || session.user.name,
+        phone: updatedUser.phone || "",
+        photo: updatedUser.photo || "",
+        gender: updatedUser.gender || "Male",
+      },
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+    emitAuthChange(nextSession);
+  }
+
+  emitDataChange("users");
+  return updatedUser;
 }
 
 export async function listPosts() {
@@ -239,6 +312,7 @@ export async function createPost({ userId, content, category = "Project", tags =
   }
 
   await dataApi("insertOne", { collection: "posts", document: post });
+  emitDataChange("posts");
   return post;
 }
 
@@ -257,6 +331,30 @@ export async function updatePost(postId, updates) {
     filter: { id: postId },
     update: { $set: updates },
   });
+
+  emitDataChange("posts");
+}
+
+export function subscribeToCommunityUpdates(callback, options = {}) {
+  const intervalMs = options.intervalMs ?? (hasAtlasConfig ? 5000 : 0);
+
+  const onDataEvent = () => callback();
+  const onStorageEvent = (event) => {
+    if ([USERS_KEY, POSTS_KEY].includes(event.key)) {
+      callback();
+    }
+  };
+
+  window.addEventListener(DATA_EVENT, onDataEvent);
+  window.addEventListener("storage", onStorageEvent);
+
+  const intervalId = intervalMs > 0 ? window.setInterval(callback, intervalMs) : null;
+
+  return () => {
+    window.removeEventListener(DATA_EVENT, onDataEvent);
+    window.removeEventListener("storage", onStorageEvent);
+    if (intervalId) window.clearInterval(intervalId);
+  };
 }
 
 export async function resetPassword({ email, newPassword }) {
@@ -277,6 +375,8 @@ export async function resetPassword({ email, newPassword }) {
     filter: { email: cleanEmail },
     update: { $set: { passwordHash } },
   });
+
+  emitDataChange("users");
 }
 
 export const atlasEnabled = hasAtlasConfig;
