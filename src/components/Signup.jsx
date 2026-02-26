@@ -38,8 +38,9 @@ function Signup() {
 
   return (
     <div className="auth-page">
-      <div className="login-card signup-card">
+      <div className="login-card auth-card signup-card">
         <h2 className="welcome-text">Create account</h2>
+        <p className="auth-subtext">Join the network, share ideas, and collaborate smarter.</p>
 
         <input className="login-input" type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
         <input className="login-input" type="email" placeholder="Google Gmail (example@gmail.com)" value={email} onChange={(e) => setEmail(e.target.value)} />
