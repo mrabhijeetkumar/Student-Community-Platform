@@ -1265,3 +1265,249 @@ select:focus {
 .dark-mode .profile-details {
   background: #111827;
 }
+/* ===== Modern dashboard enhancements ===== */
+.modern-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.compose-row {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.compose-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.feed-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.modern-post-card {
+  border-left: 4px solid #38bdf8;
+}
+
+.post-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.post-time {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.category-chip {
+  display: inline-block;
+  color: #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tag-chip {
+  background: #1e293b;
+  color: #7dd3fc;
+  border: 1px solid #334155;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.action-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.bookmark-btn {
+  background: transparent;
+  border: 1px solid #64748b;
+  color: #e2e8f0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.opportunity-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  background: rgba(15, 23, 42, 0.75);
+  margin-bottom: 10px;
+}
+
+.opportunity-card a {
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.stat-card {
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(2, 6, 23, 0.7);
+}
+
+.stat-card h2 {
+  margin-top: 6px;
+}
+
+/* ===== Modern profile UI ===== */
+.profile-modern-wrap {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) 1fr;
+  gap: 20px;
+  width: 100%;
+}
+
+.profile-summary-card,
+.profile-edit-card {
+  background: linear-gradient(165deg, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.88));
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 20px 40px rgba(2, 6, 23, 0.45);
+}
+
+.profile-summary-card {
+  text-align: center;
+}
+
+.profile-summary-card h3 {
+  margin-top: 14px;
+  margin-bottom: 4px;
+}
+
+.profile-summary-card p {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.profile-avatar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-avatar {
+  width: 110px;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid #38bdf8;
+}
+
+.profile-avatar.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.upload-chip {
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #bae6fd;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.upload-chip input {
+  display: none;
+}
+
+.profile-mini-stats {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.profile-mini-stats div {
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.profile-mini-stats span {
+  display: block;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.profile-mini-stats small {
+  color: #94a3b8;
+}
+
+.profile-heading p {
+  color: #94a3b8;
+  margin-top: 2px;
+  margin-bottom: 14px;
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.profile-edit-card label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.save-profile-btn {
+  margin-top: 10px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .profile-modern-wrap {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

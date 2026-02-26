@@ -1,453 +1,448 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import "../style.css";
-import { supabase } from "../supabase";
+import {
+  createPost,
+  getSession,
+  getUserProfile,
+  listPosts,
+  signOut,
+  updatePost,
+  updateUserProfile,
+} from "../mongodb";
+
+const OPPORTUNITIES = [
+  {
+    title: "Google Summer of Code Mentor Connect",
+    type: "Open Source",
+    deadline: "2026-03-15",
+    link: "https://summerofcode.withgoogle.com/",
+  },
+  {
+    title: "Frontend Intern - Remote (Startup)",
+    type: "Internship",
+    deadline: "2026-03-03",
+    link: "https://www.linkedin.com/jobs/",
+  },
+  {
+    title: "Community Hackathon: Build for Students",
+    type: "Hackathon",
+    deadline: "2026-03-20",
+    link: "https://devpost.com/hackathons",
+  },
+];
+
+const CATEGORY_COLORS = {
+  Announcement: "#334155",
+  Project: "#2563eb",
+  "Doubt/Help": "#0f766e",
+  "Career/Internship": "#7c3aed",
+};
+
+const formatDate = (value) => new Date(value).toLocaleString();
 
 function Dashboard() {
-
-  /* ================== 1️⃣ ALL STATES ================== */
   const [authUser, setAuthUser] = useState(null);
-  const [loadingAuth, setLoadingAuth] = useState(true);
-
+  const [activeTab, setActiveTab] = useState("feed");
+  const [postText, setPostText] = useState("");
+  const [postCategory, setPostCategory] = useState("Project");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("latest");
+  const [commentText, setCommentText] = useState({});
+  const [bookmarks, setBookmarks] = useState([]);
   const [posts, setPosts] = useState([]);
-  const [menuOpenId, setMenuOpenId] = useState(null);
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [users, setUsers] = useState({});
+  const [profile, setProfile] = useState({ name: "", email: "", phone: "", gender: "Male", photo: "", skills: "" });
 
-  const [profile, setProfile] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    gender: "Male",
-    photo: ""
-  });
-
-  const [showSettings, setShowSettings] = useState(false);
-  const [showNotification, setShowNotification] = useState(false);
-  const [notification, setNotification] = useState("Allow");
-  const [theme, setTheme] = useState("Light");
-  const [language, setLanguage] = useState("Eng");
-
-  /* ================== 2️⃣ AUTH CHECK ================== */
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        window.location.href = "/login";
-        return;
-      }
-
-      const { data: existingUser } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!existingUser) {
-        const storedName = localStorage.getItem("signup_name");
-        const storedGender = localStorage.getItem("signup_gender") || "Male";
-        const signupFlag = localStorage.getItem("signup_in_progress");
-
-        if (storedName || signupFlag) {
-          const fallbackName =
-            storedName ||
-            user.user_metadata?.full_name ||
-            (user.email ? user.email.split("@")[0] : "User");
-          const avatar = user.user_metadata?.avatar_url || "";
-
-          await supabase.from("users").insert({
-            id: user.id,
-            email: user.email,
-            name: fallbackName,
-            gender: storedGender,
-            phone: "",
-            theme: "Light",
-            language: "Eng",
-            notification: "Allow",
-            photo: avatar
-          });
-
-          localStorage.removeItem("signup_name");
-          localStorage.removeItem("signup_gender");
-          localStorage.removeItem("signup_in_progress");
-
-          alert("Signup successful! Please login to continue.");
-          await supabase.auth.signOut();
-          window.location.href = "/login";
-          return;
-        }
-
-        alert("Please signup first ❌");
-        await supabase.auth.signOut();
-        window.location.href = "/signup";
-        return;
-      }
-
-      setAuthUser(user);
-      setLoadingAuth(false);
-    };
-
-    checkUser();
+    const session = getSession();
+    if (!session?.user) {
+      window.location.href = "/login";
+      return;
+    }
+    setAuthUser(session.user);
   }, []);
 
-  /* ================== 3️⃣ DARK MODE ================== */
-  useEffect(() => {
-    if (theme === "Dark") document.body.classList.add("dark-mode");
-    else document.body.classList.remove("dark-mode");
-  }, [theme]);
-
-  /* ================== 4️⃣ LOAD PROFILE ================== */
   useEffect(() => {
     if (!authUser?.id) return;
 
-    const loadProfile = async () => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", authUser.id)
-        .maybeSingle();
+    const savedBookmarks = JSON.parse(localStorage.getItem(`bookmarks_${authUser.id}`) || "[]");
+    setBookmarks(savedBookmarks);
 
-      if (error || !data) return;
+    const load = async () => {
+      const [user, postRows] = await Promise.all([getUserProfile(authUser.id), listPosts()]);
 
-      if (data) {
-        const fallbackName =
-          data.name ||
-          authUser.user_metadata?.full_name ||
-          (authUser.email ? authUser.email.split("@")[0] : "User");
-
-        const finalEmail = data.email || authUser.email || "";
-        const finalPhoto = data.photo || authUser.user_metadata?.avatar_url || "";
-
+      if (user) {
         setProfile({
-          name: fallbackName,
-          email: finalEmail,
-          phone: data.phone || "",
-          gender: data.gender || "Male",
-          photo: finalPhoto
+          name: user.name || "",
+          email: user.email || "",
+          phone: user.phone || "",
+          gender: user.gender || "Male",
+          photo: user.photo || "",
+          skills: user.skills || "",
         });
-
-        // If stored row is missing basic fields, patch it once
-        const needsUpdate =
-          data.name !== fallbackName ||
-          data.email !== finalEmail ||
-          data.photo !== finalPhoto;
-
-        if (needsUpdate) {
-          await supabase
-            .from("users")
-            .update({
-              name: fallbackName,
-              email: finalEmail,
-              photo: finalPhoto
-            })
-            .eq("id", authUser.id);
-        }
-
-        setTheme(data.theme || "Light");
-        setLanguage(data.language || "Eng");
-        setNotification(data.notification || "Allow");
-
-        setUsers(prev => ({
-          ...prev,
-          [authUser.id]: {
-            name: fallbackName || "User",
-            photo: finalPhoto || ""
-          }
-        }));
       }
+
+      setPosts(
+        postRows.map((p) => ({
+          ...p,
+          likes: p.likes || [],
+          comments: p.comments || [],
+          category: p.category || "Project",
+          tags: p.tags || [],
+        }))
+      );
     };
 
-    loadProfile();
+    load();
   }, [authUser]);
 
-  /* ================== 5️⃣ LOAD POSTS ================== */
-  useEffect(() => {
-    const loadPosts = async () => {
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*")
-        .eq("deleted", false)
-        .order("created_at", { ascending: false });
+  const postsWithUser = useMemo(() => {
+    const decorated = posts.map((post) => ({
+      ...post,
+      score: post.likes.length * 2 + post.comments.length,
+      userName: post.user_id === authUser?.id ? profile.name || "You" : "Community Member",
+    }));
 
-      if (error) {
-        console.error(error.message);
-        return;
-      }
+    const keyword = search.trim().toLowerCase();
+    const filtered = keyword
+      ? decorated.filter(
+          (post) =>
+            post.content.toLowerCase().includes(keyword) ||
+            post.category.toLowerCase().includes(keyword) ||
+            post.tags.some((tag) => tag.toLowerCase().includes(keyword))
+        )
+      : decorated;
 
-      if (data) {
-        setPosts(
-          data.map(p => ({
-            ...p,
-            likes: Array.isArray(p.likes) ? p.likes : [],
-            comments: Array.isArray(p.comments) ? p.comments : []
-          }))
-        );
-      }
-    };
-
-    loadPosts();
-  }, []);
-
-  /* ================= SAFE PROFILE GET ================= */
-  const getProfile = (uid) =>
-    users[uid] || { name: "User", photo: "" };
-
-  /* ================= PROFILE PHOTO ================= */
-  const handlePhotoChange = async (e) => {
-    if (!authUser) return;
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const filePath = `${authUser.id}-${Date.now()}.jpg`;
-
-    const { error } = await supabase.storage
-      .from("profiles")
-      .upload(filePath, file, { upsert: true });
-
-    if (error) {
-      alert("Upload failed");
-      return;
-    }
-
-    const { data } = supabase.storage
-      .from("profiles")
-      .getPublicUrl(filePath);
-
-    const url = data.publicUrl;
-
-    setProfile(prev => ({ ...prev, photo: url }));
-
-    await supabase
-      .from("users")
-      .update({ photo: url })
-      .eq("id", authUser.id);
-  };
-
-  /* ================= SAVE PROFILE ================= */
-  const handleProfileSave = async () => {
-    await supabase.from("users").upsert({
-      id: authUser.id,
-      email: authUser.email,
-      name: profile.name,
-      phone: profile.phone,
-      gender: profile.gender,
-      photo: profile.photo
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "trending") return b.score - a.score;
+      return new Date(b.created_at) - new Date(a.created_at);
     });
+  }, [posts, authUser, profile.name, search, sortBy]);
 
-    alert("Profile updated ✅");
+  const analytics = useMemo(() => {
+    if (!authUser?.id) return { myPosts: 0, myLikesReceived: 0, myCommentsReceived: 0, streakDays: 0 };
+
+    const mine = posts.filter((p) => p.user_id === authUser.id);
+    const myLikesReceived = mine.reduce((sum, p) => sum + p.likes.length, 0);
+    const myCommentsReceived = mine.reduce((sum, p) => sum + p.comments.length, 0);
+
+    const days = new Set(
+      mine
+        .filter((p) => {
+          const diff = Date.now() - new Date(p.created_at).getTime();
+          return diff <= 7 * 24 * 60 * 60 * 1000;
+        })
+        .map((p) => new Date(p.created_at).toISOString().slice(0, 10))
+    );
+
+    return { myPosts: mine.length, myLikesReceived, myCommentsReceived, streakDays: days.size };
+  }, [posts, authUser]);
+
+  const toggleBookmark = (postId) => {
+    if (!authUser?.id) return;
+    const updated = bookmarks.includes(postId) ? bookmarks.filter((id) => id !== postId) : [...bookmarks, postId];
+    setBookmarks(updated);
+    localStorage.setItem(`bookmarks_${authUser.id}`, JSON.stringify(updated));
   };
 
-  /* ================= SETTINGS ================= */
-  const saveSettings = async () => {
-    await supabase
-      .from("users")
-      .update({ theme, language, notification })
-      .eq("id", authUser.id);
-
-    alert("Settings saved ✅");
-  };
-
-  /* ================= POSTS ================= */
-  const addPost = async (text) => {
-    if (!text.trim()) return;
-
-    const { data } = await supabase
-      .from("posts")
-      .insert({
-        user_uid: authUser.id,
-        content: text,
-        likes: [],
-        comments: [],
-        deleted: false
-      })
-      .select()
-      .single();
-
-    if (data) setPosts(prev => [data, ...prev]);
+  const addPost = async () => {
+    if (!postText.trim() || !authUser?.id) return;
+    const tags = (postText.match(/#[a-zA-Z0-9_]+/g) || []).map((tag) => tag.toLowerCase());
+    const created = await createPost({
+      userId: authUser.id,
+      content: postText.trim(),
+      category: postCategory,
+      tags,
+    });
+    setPosts((prev) => [{ ...created, category: postCategory, tags }, ...prev]);
+    setPostText("");
   };
 
   const toggleLike = async (post) => {
-    const likes = post.likes.includes(authUser.id)
-      ? post.likes.filter(i => i !== authUser.id)
-      : [...post.likes, authUser.id];
-
-    await supabase.from("posts").update({ likes }).eq("id", post.id);
-
-    setPosts(prev =>
-      prev.map(p => p.id === post.id ? { ...p, likes } : p)
-    );
+    if (!authUser?.id) return;
+    const isLiked = post.likes.includes(authUser.id);
+    const likes = isLiked ? post.likes.filter((id) => id !== authUser.id) : [...post.likes, authUser.id];
+    await updatePost(post.id, { likes });
+    setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, likes } : p)));
   };
 
-  const addComment = async (post, text) => {
-    if (!text.trim()) return;
-
-    const comments = [
-      ...post.comments,
-      { id: Date.now(), userUid: authUser.id, text }
-    ];
-
-    await supabase.from("posts").update({ comments }).eq("id", post.id);
-
-    setPosts(prev =>
-      prev.map(p => p.id === post.id ? { ...p, comments } : p)
-    );
+  const addComment = async (post) => {
+    const text = (commentText[post.id] || "").trim();
+    if (!text || !authUser?.id) return;
+    const comments = [...post.comments, { user_id: authUser.id, text, created_at: new Date().toISOString() }];
+    await updatePost(post.id, { comments });
+    setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, comments } : p)));
+    setCommentText((prev) => ({ ...prev, [post.id]: "" }));
   };
 
-  const deletePost = async (post) => {
-    await supabase.from("posts").update({ deleted: true }).eq("id", post.id);
-    setPosts(prev => prev.filter(p => p.id !== post.id));
+  const saveProfile = async () => {
+    if (!authUser?.id) return;
+    await updateUserProfile(authUser.id, {
+      name: profile.name,
+      phone: profile.phone,
+      gender: profile.gender,
+      photo: profile.photo,
+      skills: profile.skills,
+    });
+    alert("Profile updated");
   };
 
-  const editPost = async (post) => {
-    const txt = prompt("Edit post", post.content);
-    if (!txt) return;
+  const exportPortfolio = () => {
+    const summary = {
+      name: profile.name,
+      email: profile.email,
+      skills: profile.skills,
+      stats: analytics,
+      topPosts: postsWithUser.slice(0, 3).map((post) => ({
+        content: post.content,
+        category: post.category,
+        likes: post.likes.length,
+        comments: post.comments.length,
+      })),
+    };
 
-    await supabase.from("posts").update({ content: txt }).eq("id", post.id);
-
-    setPosts(prev =>
-      prev.map(p => p.id === post.id ? { ...p, content: txt } : p)
-    );
+    const blob = new Blob([JSON.stringify(summary, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "student-community-portfolio.json";
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
-  /* ================= LOGOUT ================= */
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    localStorage.clear();
+  const handlePhotoChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => setProfile((prev) => ({ ...prev, photo: reader.result }));
+    reader.readAsDataURL(file);
+  };
+
+  const handleLogout = () => {
+    signOut();
     window.location.href = "/login";
   };
 
-  /* ================= LOADING ================= */
-  if (loadingAuth) {
-    return <h2 style={{ textAlign: "center" }}>Checking access...</h2>;
-  }
-
-  /* ================= FINAL UI ================= */
   return (
-    <div className={`dashboard ${theme === "Dark" ? "dark-mode" : ""}`}>
-
-      <div className="topbar">
+    <div className="dashboard-container">
+      <div className="topbar modern-topbar">
         <h3>Student Community Platform</h3>
-        <button onClick={handleLogout}>Logout</button>
+        <div className="topbar-actions">
+          <button onClick={() => setActiveTab("analytics")}>📈 Analytics</button>
+          <button onClick={handleLogout}>Logout</button>
+        </div>
       </div>
 
       <div className="dashboard-body">
-
         <div className="sidebar">
-          <p onClick={() => setActiveTab("dashboard")}>🏠 Dashboard</p>
-          <p onClick={() => setActiveTab("posts")}>📝 Posts</p>
+          <p onClick={() => setActiveTab("feed")}>🏠 Smart Feed</p>
+          <p onClick={() => setActiveTab("bookmarks")}>🔖 Saved Posts</p>
+          <p onClick={() => setActiveTab("opportunities")}>🚀 Opportunities</p>
           <p onClick={() => setActiveTab("profile")}>👤 Profile</p>
         </div>
 
         <div className="content">
-          {activeTab === "dashboard" && (
+          {(activeTab === "feed" || activeTab === "bookmarks") && (
             <>
-              <textarea id="postText" />
-              <button onClick={() => {
-                addPost(document.getElementById("postText").value);
-                document.getElementById("postText").value = "";
-              }}>Post</button>
-
-              {posts.map(post => (
-                <div key={post.id} className="post-card">
-                  <p>{post.content}</p>
-                  <button onClick={() => toggleLike(post)}>
-                    👍 {post.likes.length}
-                  </button>
+              <div className="compose-row">
+                <textarea
+                  value={postText}
+                  onChange={(event) => setPostText(event.target.value)}
+                  placeholder="Share project updates, hackathon ideas, or internship tips..."
+                />
+                <div className="compose-actions">
+                  <select value={postCategory} onChange={(event) => setPostCategory(event.target.value)}>
+                    <option>Project</option>
+                    <option>Announcement</option>
+                    <option>Doubt/Help</option>
+                    <option>Career/Internship</option>
+                  </select>
+                  <button onClick={addPost}>Post</button>
                 </div>
-              ))}
-            </>
-          )}
-          {activeTab === "profile" && (
-            <div className="profile-section" style={{ display: 'flex', gap: 32, alignItems: 'stretch', width: '100%' }}>
-              {/* Left card: menu + avatar */}
-              <div style={{ flex: 0.35, background: 'rgba(15,23,42,0.9)', borderRadius: 24, padding: 24, boxShadow: '0 18px 45px rgba(0,0,0,0.55)', border: '1px solid rgba(148,163,184,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ marginBottom: 16 }}>
-                  <label htmlFor="profile-photo-input" style={{ cursor: 'pointer', display: 'inline-block', position: 'relative' }}>
-                    {profile.photo ? (
-                      <img src={profile.photo} alt="Profile" style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover', border: '3px solid #38bdf8' }} />
-                    ) : (
-                      <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'rgba(148,163,184,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, color: '#e5e7eb', border: '2px solid rgba(148,163,184,0.5)' }}>👤</div>
-                    )}
-                    <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#3b82f6', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, border: '2px solid #0f172a' }}>✎</div>
-                  </label>
-                  <input
-                    id="profile-photo-input"
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoChange}
-                    style={{ display: 'none' }}
-                  />
-                </div>
-                <div style={{ fontSize: 14, color: '#9ca3af', marginBottom: 18 }}>Click avatar to change photo</div>
-                <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>{profile.name || 'Your name'}</div>
-                <div style={{ color: '#9ca3af', fontSize: 14, marginBottom: 18 }}>{profile.email || 'Email account'}</div>
-
-                <div style={{ width: '100%', height: 1, background: 'rgba(148,163,184,0.3)', margin: '8px 0 16px' }} />
-
-                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 15 }}>
-                  <button style={{ textAlign: 'left', padding: '10px 14px', borderRadius: 12, border: 'none', background: '#1d283a', color: '#e5e7eb', fontWeight: 600, cursor: 'default' }}>👤 My Profile</button>
-                  <button style={{ textAlign: 'left', padding: '10px 14px', borderRadius: 12, border: 'none', background: 'transparent', color: '#9ca3af', cursor: 'default' }}>⚙️ Settings</button>
-                  <button style={{ textAlign: 'left', padding: '10px 14px', borderRadius: 12, border: 'none', background: 'transparent', color: '#9ca3af', cursor: 'default' }}>🔔 Notification&nbsp; <span style={{ color: '#4ade80' }}>Allow</span></button>
-                </div>
-
-                <button onClick={handleLogout} style={{ marginTop: 'auto', marginBottom: 4, alignSelf: 'flex-start', padding: '10px 14px', borderRadius: 12, border: 'none', background: 'transparent', color: '#f97373', fontWeight: 600, cursor: 'pointer' }}>📕 Log Out</button>
               </div>
 
-              {/* Right card: editable details */}
-              <div style={{ flex: 0.65, background: 'rgba(15,23,42,0.92)', borderRadius: 24, padding: 28, boxShadow: '0 18px 45px rgba(0,0,0,0.55)', border: '1px solid rgba(148,163,184,0.25)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                  <span style={{ fontSize: 20 }}>📝</span>
-                  <h3 style={{ fontSize: 20, fontWeight: 700 }}>Your name</h3>
+              <div className="feed-toolbar">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search by text, category, or #tag"
+                />
+                <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                  <option value="latest">Latest</option>
+                  <option value="trending">Trending</option>
+                </select>
+              </div>
+
+              {postsWithUser
+                .filter((post) => (activeTab === "bookmarks" ? bookmarks.includes(post.id) : true))
+                .map((post) => (
+                  <div key={post.id} className="post-card modern-post-card">
+                    <div className="post-head">
+                      <p>
+                        <b>{post.userName}</b> · <span className="post-time">{formatDate(post.created_at)}</span>
+                      </p>
+                      <button className="bookmark-btn" onClick={() => toggleBookmark(post.id)}>
+                        {bookmarks.includes(post.id) ? "★ Saved" : "☆ Save"}
+                      </button>
+                    </div>
+
+                    <span className="category-chip" style={{ background: CATEGORY_COLORS[post.category] || "#475569" }}>
+                      {post.category}
+                    </span>
+                    <p>{post.content}</p>
+
+                    <div className="tags-row">
+                      {post.tags.map((tag) => (
+                        <span key={`${post.id}-${tag}`} className="tag-chip">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="action-row">
+                      <button onClick={() => toggleLike(post)}>👍 {post.likes.length}</button>
+                      <span>💬 {post.comments.length}</span>
+                      <span>🔥 Score {post.score}</span>
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      {post.comments.map((comment, index) => (
+                        <p key={`${post.id}-${index}`}>💬 {comment.text}</p>
+                      ))}
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <input
+                        type="text"
+                        value={commentText[post.id] || ""}
+                        onChange={(event) => setCommentText((prev) => ({ ...prev, [post.id]: event.target.value }))}
+                        placeholder="Write a comment"
+                      />
+                      <button onClick={() => addComment(post)}>Comment</button>
+                    </div>
+                  </div>
+                ))}
+            </>
+          )}
+
+          {activeTab === "opportunities" && (
+            <div className="profile-section" style={{ maxWidth: 900 }}>
+              <h3>Career & Growth Opportunities</h3>
+              {OPPORTUNITIES.map((item) => (
+                <div key={item.title} className="opportunity-card">
+                  <div>
+                    <h4>{item.title}</h4>
+                    <p>
+                      {item.type} · Deadline: {item.deadline}
+                    </p>
+                  </div>
+                  <a href={item.link} target="_blank" rel="noreferrer">
+                    Apply / Explore
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === "analytics" && (
+            <div className="profile-section" style={{ maxWidth: 900 }}>
+              <h3>Impact Analytics</h3>
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <p>Total Posts</p>
+                  <h2>{analytics.myPosts}</h2>
+                </div>
+                <div className="stat-card">
+                  <p>Total Likes Received</p>
+                  <h2>{analytics.myLikesReceived}</h2>
+                </div>
+                <div className="stat-card">
+                  <p>Comments Received</p>
+                  <h2>{analytics.myCommentsReceived}</h2>
+                </div>
+                <div className="stat-card">
+                  <p>7-day Consistency</p>
+                  <h2>{analytics.streakDays} days</h2>
+                </div>
+              </div>
+              <button onClick={exportPortfolio}>Export Resume-ready Portfolio JSON</button>
+            </div>
+          )}
+
+          {activeTab === "profile" && (
+            <div className="profile-modern-wrap">
+              <div className="profile-summary-card">
+                <div className="profile-avatar-wrap">
+                  {profile.photo ? <img src={profile.photo} alt="Profile" className="profile-avatar" /> : <div className="profile-avatar placeholder">👤</div>}
+                  <label className="upload-chip">
+                    Change photo
+                    <input type="file" accept="image/*" onChange={handlePhotoChange} />
+                  </label>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 14, color: '#9ca3af', marginBottom: 4 }}>Name</label>
+                <h3>{profile.name || "Your Name"}</h3>
+                <p>{profile.email || "email@example.com"}</p>
+
+                <div className="profile-mini-stats">
+                  <div>
+                    <span>{analytics.myPosts}</span>
+                    <small>Posts</small>
+                  </div>
+                  <div>
+                    <span>{analytics.myLikesReceived}</span>
+                    <small>Likes</small>
+                  </div>
+                  <div>
+                    <span>{analytics.streakDays}</span>
+                    <small>Streak</small>
+                  </div>
+                </div>
+              </div>
+
+              <div className="profile-edit-card">
+                <div className="profile-heading">
+                  <h3>Profile Details</h3>
+                  <p>Make your profile stand out to recruiters and peers.</p>
+                </div>
+
+                <div className="profile-form-grid">
+                  <div>
+                    <label>Full Name</label>
+                    <input type="text" value={profile.name} onChange={(event) => setProfile((prev) => ({ ...prev, name: event.target.value }))} placeholder="Enter your full name" />
+                  </div>
+
+                  <div>
+                    <label>Email</label>
+                    <input type="email" value={profile.email} disabled placeholder="Email" />
+                  </div>
+
+                  <div>
+                    <label>Phone</label>
+                    <input type="text" value={profile.phone} onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))} placeholder="+91 98xxxxxx" />
+                  </div>
+
+                  <div>
+                    <label>Gender</label>
+                    <select value={profile.gender} onChange={(event) => setProfile((prev) => ({ ...prev, gender: event.target.value }))}>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label>Skills</label>
                   <input
                     type="text"
-                    value={profile.name}
-                    onChange={e => setProfile({ ...profile, name: e.target.value })}
-                    style={{ width: '100%', padding: 10, borderRadius: 12, border: '1px solid rgba(148,163,184,0.4)', background: '#020617', color: '#e5e7eb' }}
+                    value={profile.skills}
+                    onChange={(event) => setProfile((prev) => ({ ...prev, skills: event.target.value }))}
+                    placeholder="React, Node.js, MongoDB, DSA, UI/UX"
                   />
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 14, color: '#9ca3af', marginBottom: 4 }}>Email account</label>
-                  <input
-                    type="text"
-                    value={profile.email}
-                    disabled
-                    style={{ width: '100%', padding: 10, borderRadius: 12, border: '1px solid rgba(148,163,184,0.4)', background: '#020617', color: '#64748b' }}
-                  />
-                </div>
-
-                <div style={{ marginBottom: 16, display: 'flex', gap: 16 }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: 14, color: '#9ca3af', marginBottom: 4 }}>Mobile number</label>
-                    <input
-                      type="text"
-                      value={profile.phone}
-                      onChange={e => setProfile({ ...profile, phone: e.target.value })}
-                      placeholder="Add number"
-                      style={{ width: '100%', padding: 10, borderRadius: 12, border: '1px solid rgba(148,163,184,0.4)', background: '#020617', color: '#e5e7eb' }}
-                    />
-                  </div>
-                  <div style={{ width: 160 }}>
-                    <label style={{ display: 'block', fontSize: 14, color: '#9ca3af', marginBottom: 4 }}>Location</label>
-                    <input
-                      type="text"
-                      value="India"
-                      disabled
-                      style={{ width: '100%', padding: 10, borderRadius: 12, border: '1px solid rgba(148,163,184,0.4)', background: '#020617', color: '#64748b' }}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleProfileSave}
-                  style={{ marginTop: 8, padding: '10px 32px', background: 'linear-gradient(135deg,#3b82f6,#2563eb)', color: '#fff', border: 'none', borderRadius: 999, fontWeight: 700, cursor: 'pointer', boxShadow: '0 12px 25px rgba(37,99,235,0.45)' }}
-                >
-                  Save Change
-                </button>
+                <button className="save-profile-btn" onClick={saveProfile}>Save Profile</button>
               </div>
             </div>
           )}
