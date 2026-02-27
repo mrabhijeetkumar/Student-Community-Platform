@@ -34,3 +34,5 @@ If these env vars are not provided, the app falls back to localStorage for local
 - Opportunities board (internships, open source, hackathons)
 - Impact analytics dashboard (posts, likes, comments, consistency streak)
 - Profile skills field + portfolio JSON export for resume attachments
+- Community moderation queue with post reporting and quick resolution tools
+- Basic content-quality guardrails to block harmful terms before publishing
