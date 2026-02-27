@@ -39,3 +39,4 @@ If these env vars are not provided, the app falls back to localStorage for local
 - Learning Hub with curated roadmap/interview/open-source resources
 - Weekly Goal Tracker for consistency and accountability
 - Top contributor leaderboard based on community impact points
+- Next-level profile section with badges, skill chips, readiness checklist, and recruiter-facing hero card

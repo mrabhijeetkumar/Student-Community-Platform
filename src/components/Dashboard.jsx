@@ -223,6 +223,30 @@ function Dashboard() {
     return Math.round((completed / fields.length) * 100);
   }, [profile]);
 
+  const skillTags = useMemo(
+    () => profile.skills.split(",").map((skill) => skill.trim()).filter(Boolean).slice(0, 8),
+    [profile.skills]
+  );
+
+  const profileChecklist = useMemo(
+    () => [
+      { label: "Professional photo", done: Boolean(profile.photo) },
+      { label: "Contact number", done: Boolean(profile.phone.trim()) },
+      { label: "At least 3 skills", done: skillTags.length >= 3 },
+      { label: "Active posting streak", done: analytics.streakDays >= 2 },
+    ],
+    [profile.photo, profile.phone, skillTags.length, analytics.streakDays]
+  );
+
+  const achievementBadges = useMemo(() => {
+    const badges = [];
+    if (analytics.myPosts >= 3) badges.push("🚀 Consistent Builder");
+    if (analytics.myLikesReceived >= 5) badges.push("🔥 Community Impact");
+    if (profileCompletion >= 80) badges.push("✅ Profile Pro");
+    if (skillTags.length >= 4) badges.push("🧠 Skill Rich");
+    return badges.length ? badges : ["🌱 Rising Member"];
+  }, [analytics.myPosts, analytics.myLikesReceived, profileCompletion, skillTags.length]);
+
   const toggleBookmark = (postId) => {
     if (!authUser?.id) return;
     const updated = bookmarks.includes(postId) ? bookmarks.filter((id) => id !== postId) : [...bookmarks, postId];
@@ -696,6 +720,12 @@ function Dashboard() {
                 <h3>{profile.name || "Your Name"}</h3>
                 <p>{profile.email || "email@example.com"}</p>
 
+                <div className="profile-badge-wrap">
+                  {achievementBadges.map((badge) => (
+                    <span key={badge} className="profile-badge">{badge}</span>
+                  ))}
+                </div>
+
                 <div className="profile-completion-card">
                   <p>Profile Strength</p>
                   <div className="profile-progress-track">
@@ -718,9 +748,25 @@ function Dashboard() {
                     <small>Streak</small>
                   </div>
                 </div>
+
+                {skillTags.length > 0 && (
+                  <div className="skill-chip-wrap">
+                    {skillTags.map((skill) => (
+                      <span key={skill} className="skill-chip">{skill}</span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="profile-edit-card">
+                <div className="profile-hero-strip">
+                  <div>
+                    <h3>Talent Snapshot</h3>
+                    <p>Industry-grade profile card for recruiters, mentors, and collaborators.</p>
+                  </div>
+                  <span className="availability-pill">Open to internships</span>
+                </div>
+
                 <div className="profile-heading">
                   <h3>Profile Details</h3>
                   <p>Make your profile stand out to recruiters and peers.</p>
@@ -760,6 +806,15 @@ function Dashboard() {
                     onChange={(event) => setProfile((prev) => ({ ...prev, skills: event.target.value }))}
                     placeholder="React, Node.js, MongoDB, DSA, UI/UX"
                   />
+                </div>
+
+                <div className="profile-checklist-card">
+                  <h4>Recruiter Readiness Checklist</h4>
+                  {profileChecklist.map((item) => (
+                    <p key={item.label} className="checklist-item">
+                      <span>{item.done ? "✅" : "⬜"}</span> {item.label}
+                    </p>
+                  ))}
                 </div>
 
                 <button className="save-profile-btn" onClick={saveProfile}>Save Profile</button>

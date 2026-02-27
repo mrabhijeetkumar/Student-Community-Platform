@@ -2071,3 +2071,93 @@ select:focus {
   text-decoration: line-through;
   color: #94a3b8;
 }
+
+.profile-badge-wrap {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.profile-badge {
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  color: #dbeafe;
+}
+
+.skill-chip-wrap {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.skill-chip {
+  border: 1px solid rgba(129, 140, 248, 0.45);
+  color: #e0e7ff;
+  background: rgba(79, 70, 229, 0.2);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.profile-hero-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(125, 211, 252, 0.3);
+  background: linear-gradient(100deg, rgba(30, 64, 175, 0.24), rgba(8, 47, 73, 0.3));
+}
+
+.profile-hero-strip h3 {
+  margin-bottom: 4px;
+}
+
+.profile-hero-strip p {
+  color: #bfdbfe;
+  font-size: 13px;
+}
+
+.availability-pill {
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  border: 1px solid rgba(74, 222, 128, 0.45);
+  color: #dcfce7;
+  background: rgba(22, 163, 74, 0.18);
+}
+
+.profile-checklist-card {
+  margin-top: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.profile-checklist-card h4 {
+  margin-bottom: 8px;
+}
+
+.checklist-item {
+  color: #cbd5e1;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+@media (max-width: 700px) {
+  .profile-hero-strip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
