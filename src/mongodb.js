@@ -10,6 +10,9 @@ const USERS_KEY = "users";
 const POSTS_KEY = "posts";
 const AUTH_EVENT = "auth_state_change";
 const DATA_EVENT = "community_data_change";
+const PENDING_SIGNUPS_KEY = "pending_signups";
+const EMAIL_VERIFICATION_WEBHOOK = process.env.REACT_APP_EMAIL_VERIFICATION_WEBHOOK || "";
+const OTP_TTL_MS = 10 * 60 * 1000;
 
 const hasAtlasConfig = Boolean(DATA_API_BASE_URL && DATA_API_KEY);
 
@@ -22,6 +25,126 @@ function validateGmailAddress(email) {
   }
 
   return cleanEmail;
+}
+
+const getPendingSignups = () => JSON.parse(localStorage.getItem(PENDING_SIGNUPS_KEY) || "{}");
+const setPendingSignups = (value) => localStorage.setItem(PENDING_SIGNUPS_KEY, JSON.stringify(value));
+
+const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
+
+async function ensureEmailAvailable(cleanEmail) {
+  if (!hasAtlasConfig) {
+    const exists = getLocalUsers().some((u) => u.email === cleanEmail);
+    if (exists) throw new Error("Email already exists");
+    return;
+  }
+
+  const { document: existingUser } = await dataApi("findOne", {
+    collection: "users",
+    filter: { email: cleanEmail },
+  });
+
+  if (existingUser) {
+    throw new Error("Email already exists");
+  }
+}
+
+async function dispatchVerificationOtp({ email, otp, name }) {
+  if (!EMAIL_VERIFICATION_WEBHOOK) {
+    return { delivery: "local", debugOtp: otp };
+  }
+
+  const response = await fetch(EMAIL_VERIFICATION_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      otp,
+      subject: "Verify your Student Community account",
+      message: `Hi ${name}, your verification OTP is ${otp}. It expires in 10 minutes.`,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Unable to send verification email right now. Please try again.");
+  }
+
+  return { delivery: "email" };
+}
+
+export async function requestSignupVerification({ name, email, password, gender }) {
+  const cleanEmail = validateGmailAddress(email);
+  await ensureEmailAvailable(cleanEmail);
+
+  const otp = generateOtp();
+  const pendingSignups = getPendingSignups();
+  const expiresAt = new Date(Date.now() + OTP_TTL_MS).toISOString();
+
+  pendingSignups[cleanEmail] = {
+    name: name.trim(),
+    email: cleanEmail,
+    gender,
+    passwordHash: CryptoJS.SHA256(password).toString(),
+    otpHash: CryptoJS.SHA256(otp).toString(),
+    expiresAt,
+    createdAt: new Date().toISOString(),
+  };
+
+  setPendingSignups(pendingSignups);
+
+  const result = await dispatchVerificationOtp({ email: cleanEmail, otp, name: name.trim() });
+  return { expiresAt, ...result };
+}
+
+export async function verifySignupOtpAndCreateUser({ email, otp }) {
+  const cleanEmail = validateGmailAddress(email);
+  const pendingSignups = getPendingSignups();
+  const pending = pendingSignups[cleanEmail];
+
+  if (!pending) {
+    throw new Error("Verification request not found. Please request OTP again.");
+  }
+
+  if (new Date(pending.expiresAt).getTime() < Date.now()) {
+    delete pendingSignups[cleanEmail];
+    setPendingSignups(pendingSignups);
+    throw new Error("OTP expired. Please request a new verification OTP.");
+  }
+
+  const providedHash = CryptoJS.SHA256(String(otp || "").trim()).toString();
+  if (providedHash !== pending.otpHash) {
+    throw new Error("Invalid OTP. Please check and try again.");
+  }
+
+  await ensureEmailAvailable(cleanEmail);
+
+  const userDoc = {
+    id: crypto.randomUUID(),
+    name: pending.name,
+    email: pending.email,
+    gender: pending.gender,
+    passwordHash: pending.passwordHash,
+    phone: "",
+    photo: "",
+    theme: "Light",
+    language: "Eng",
+    notification: "Allow",
+    emailVerified: true,
+    emailVerifiedAt: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  };
+
+  if (!hasAtlasConfig) {
+    const users = getLocalUsers();
+    users.push(userDoc);
+    setLocalUsers(users);
+  } else {
+    await dataApi("insertOne", { collection: "users", document: userDoc });
+  }
+
+  delete pendingSignups[cleanEmail];
+  setPendingSignups(pendingSignups);
+  return userDoc;
 }
 
 const getLocalUsers = () => JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
@@ -68,11 +191,10 @@ async function dataApi(action, payload) {
 export async function registerUser({ name, email, password, gender }) {
   const cleanEmail = validateGmailAddress(email);
   const passwordHash = CryptoJS.SHA256(password).toString();
+  await ensureEmailAvailable(cleanEmail);
 
   if (!hasAtlasConfig) {
     const users = getLocalUsers();
-    const exists = users.some((u) => u.email === cleanEmail);
-    if (exists) throw new Error("Email already exists");
 
     const user = {
       id: crypto.randomUUID(),
@@ -85,21 +207,14 @@ export async function registerUser({ name, email, password, gender }) {
       theme: "Light",
       language: "Eng",
       notification: "Allow",
+      emailVerified: true,
+      emailVerifiedAt: new Date().toISOString(),
       created_at: new Date().toISOString(),
     };
 
     users.push(user);
     setLocalUsers(users);
     return user;
-  }
-
-  const { document: existingUser } = await dataApi("findOne", {
-    collection: "users",
-    filter: { email: cleanEmail },
-  });
-
-  if (existingUser) {
-    throw new Error("Email already exists");
   }
 
   const userDoc = {
@@ -113,6 +228,8 @@ export async function registerUser({ name, email, password, gender }) {
     theme: "Light",
     language: "Eng",
     notification: "Allow",
+    emailVerified: true,
+    emailVerifiedAt: new Date().toISOString(),
     created_at: new Date().toISOString(),
   };
 
@@ -137,6 +254,9 @@ export async function loginUser({ email, password }) {
   }
 
   if (!user) throw new Error("Invalid email or password");
+  if (!user.emailVerified) {
+    throw new Error("Email not verified. Please complete OTP verification before login.");
+  }
 
   const safeUser = {
     id: user.id,
@@ -301,6 +421,8 @@ export async function createPost({ userId, content, category = "Project", tags =
     likes: [],
     comments: [],
     deleted: false,
+    emailVerified: true,
+    emailVerifiedAt: new Date().toISOString(),
     created_at: new Date().toISOString(),
   };
 
