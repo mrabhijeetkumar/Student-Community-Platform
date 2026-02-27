@@ -61,14 +61,15 @@ function Dashboard() {
   const [toast, setToast] = useState("");
 
   const fileInputRef = useRef(null);
+  const toastTimeoutRef = useRef(null);
 
   const showToast = (message) => {
     setToast(message);
-    window.clearTimeout(showToast.timer);
-    showToast.timer = window.setTimeout(() => setToast(""), 3000);
+    window.clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = window.setTimeout(() => setToast(""), 3000);
   };
 
-  useEffect(() => () => window.clearTimeout(showToast.timer), []);
+  useEffect(() => () => window.clearTimeout(toastTimeoutRef.current), []);
 
   useEffect(() => {
     const session = getSession();
