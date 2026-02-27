@@ -40,6 +40,15 @@ const CATEGORY_COLORS = {
   "Career/Internship": "#7c2dd9",
 };
 
+const REPORT_REASONS = ["Spam", "Abusive language", "Off-topic", "Fake information"];
+const FLAGGED_TERMS = ["hate", "abuse", "fake-news"];
+const LEARNING_RESOURCES = [
+  { title: "DSA Roadmap", type: "Interview Prep", link: "https://neetcode.io/roadmap" },
+  { title: "System Design Primer", type: "Architecture", link: "https://github.com/donnemartin/system-design-primer" },
+  { title: "Open Source Guide", type: "Community", link: "https://opensource.guide/how-to-contribute/" },
+  { title: "Resume Checklist", type: "Career", link: "https://www.overleaf.com/latex/templates/tagged/cv" },
+];
+
 const formatDate = (value) => new Date(value).toLocaleString();
 
 function Dashboard() {
@@ -55,8 +64,20 @@ function Dashboard() {
   const [usersById, setUsersById] = useState({});
   const [profile, setProfile] = useState({ name: "", email: "", phone: "", gender: "Male", photo: "", skills: "" });
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [toast, setToast] = useState("");
+  const [goalInput, setGoalInput] = useState("");
+  const [goals, setGoals] = useState([]);
 
   const fileInputRef = useRef(null);
+  const toastTimeoutRef = useRef(null);
+
+  const showToast = (message) => {
+    setToast(message);
+    window.clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = window.setTimeout(() => setToast(""), 3000);
+  };
+
+  useEffect(() => () => window.clearTimeout(toastTimeoutRef.current), []);
 
   useEffect(() => {
     const session = getSession();
@@ -102,6 +123,7 @@ function Dashboard() {
           ...p,
           likes: p.likes || [],
           comments: p.comments || [],
+          reports: p.reports || [],
           category: p.category || "Project",
           tags: p.tags || [],
         }))
@@ -115,6 +137,17 @@ function Dashboard() {
       unsubscribeLive();
     };
   }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    const savedGoals = JSON.parse(localStorage.getItem(`goals_${authUser.id}`) || "[]");
+    setGoals(savedGoals);
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    localStorage.setItem(`goals_${authUser.id}`, JSON.stringify(goals));
+  }, [goals, authUser]);
 
   const postsWithUser = useMemo(() => {
     const decorated = posts.map((post) => ({
@@ -139,6 +172,11 @@ function Dashboard() {
     });
   }, [posts, usersById, search, sortBy]);
 
+  const flaggedPosts = useMemo(
+    () => postsWithUser.filter((post) => post.reports.length > 0).sort((a, b) => b.reports.length - a.reports.length),
+    [postsWithUser]
+  );
+
   const analytics = useMemo(() => {
     if (!authUser?.id) return { myPosts: 0, myLikesReceived: 0, myCommentsReceived: 0, streakDays: 0 };
 
@@ -158,11 +196,56 @@ function Dashboard() {
     return { myPosts: mine.length, myLikesReceived, myCommentsReceived, streakDays: days.size };
   }, [posts, authUser]);
 
+  const leaderboard = useMemo(() => {
+    const byUser = posts.reduce((accumulator, post) => {
+      if (!accumulator[post.user_id]) {
+        accumulator[post.user_id] = { points: 0, posts: 0 };
+      }
+      accumulator[post.user_id].posts += 1;
+      accumulator[post.user_id].points += (post.likes?.length || 0) * 2 + (post.comments?.length || 0);
+      return accumulator;
+    }, {});
+
+    return Object.entries(byUser)
+      .map(([userId, stats]) => ({
+        userId,
+        name: usersById[userId]?.name || "Community Member",
+        points: stats.points,
+        posts: stats.posts,
+      }))
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 5);
+  }, [posts, usersById]);
+
   const profileCompletion = useMemo(() => {
     const fields = [profile.name, profile.phone, profile.gender, profile.skills, profile.photo];
     const completed = fields.filter((field) => String(field || "").trim()).length;
     return Math.round((completed / fields.length) * 100);
   }, [profile]);
+
+  const skillTags = useMemo(
+    () => profile.skills.split(",").map((skill) => skill.trim()).filter(Boolean).slice(0, 8),
+    [profile.skills]
+  );
+
+  const profileChecklist = useMemo(
+    () => [
+      { label: "Professional photo", done: Boolean(profile.photo) },
+      { label: "Contact number", done: Boolean(profile.phone.trim()) },
+      { label: "At least 3 skills", done: skillTags.length >= 3 },
+      { label: "Active posting streak", done: analytics.streakDays >= 2 },
+    ],
+    [profile.photo, profile.phone, skillTags.length, analytics.streakDays]
+  );
+
+  const achievementBadges = useMemo(() => {
+    const badges = [];
+    if (analytics.myPosts >= 3) badges.push("🚀 Consistent Builder");
+    if (analytics.myLikesReceived >= 5) badges.push("🔥 Community Impact");
+    if (profileCompletion >= 80) badges.push("✅ Profile Pro");
+    if (skillTags.length >= 4) badges.push("🧠 Skill Rich");
+    return badges.length ? badges : ["🌱 Rising Member"];
+  }, [analytics.myPosts, analytics.myLikesReceived, profileCompletion, skillTags.length]);
 
   const toggleBookmark = (postId) => {
     if (!authUser?.id) return;
@@ -171,8 +254,35 @@ function Dashboard() {
     localStorage.setItem(`bookmarks_${authUser.id}`, JSON.stringify(updated));
   };
 
+  const addGoal = () => {
+    const clean = goalInput.trim();
+    if (!clean) return;
+    const newGoal = { id: crypto.randomUUID(), title: clean, completed: false, created_at: new Date().toISOString() };
+    setGoals((previous) => [newGoal, ...previous]);
+    setGoalInput("");
+    showToast("Goal added to your weekly tracker.");
+  };
+
+  const toggleGoal = (goalId) => {
+    setGoals((previous) =>
+      previous.map((goal) => (goal.id === goalId ? { ...goal, completed: !goal.completed } : goal))
+    );
+  };
+
+  const removeGoal = (goalId) => {
+    setGoals((previous) => previous.filter((goal) => goal.id !== goalId));
+  };
+
   const addPost = async () => {
     if (!postText.trim() || !authUser?.id) return;
+
+    const lowered = postText.trim().toLowerCase();
+    const hasFlaggedTerm = FLAGGED_TERMS.some((term) => lowered.includes(term));
+    if (hasFlaggedTerm) {
+      showToast("Post blocked: content violates community quality guidelines.");
+      return;
+    }
+
     const tags = (postText.match(/#[a-zA-Z0-9_]+/g) || []).map((tag) => tag.toLowerCase());
     const created = await createPost({
       userId: authUser.id,
@@ -180,8 +290,9 @@ function Dashboard() {
       category: postCategory,
       tags,
     });
-    setPosts((prev) => [{ ...created, category: postCategory, tags }, ...prev]);
+    setPosts((prev) => [{ ...created, category: postCategory, tags, reports: [] }, ...prev]);
     setPostText("");
+    showToast("Post published successfully.");
   };
 
   const toggleLike = async (post) => {
@@ -199,6 +310,27 @@ function Dashboard() {
     await updatePost(post.id, { comments });
     setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, comments } : p)));
     setCommentText((prev) => ({ ...prev, [post.id]: "" }));
+  };
+
+  const reportPost = async (post, reason) => {
+    if (!authUser?.id || post.user_id === authUser.id) return;
+
+    const alreadyReported = post.reports.some((report) => report.user_id === authUser.id);
+    if (alreadyReported) {
+      showToast("You have already reported this post.");
+      return;
+    }
+
+    const nextReports = [...post.reports, { user_id: authUser.id, reason, created_at: new Date().toISOString() }];
+    await updatePost(post.id, { reports: nextReports });
+    setPosts((prev) => prev.map((item) => (item.id === post.id ? { ...item, reports: nextReports } : item)));
+    showToast("Post reported. Thanks for helping keep community safe.");
+  };
+
+  const resolveReports = async (post) => {
+    await updatePost(post.id, { reports: [] });
+    setPosts((prev) => prev.map((item) => (item.id === post.id ? { ...item, reports: [] } : item)));
+    showToast("Reports resolved for this post.");
   };
 
   const deletePost = async (post) => {
@@ -238,7 +370,7 @@ function Dashboard() {
       }));
     }
 
-    alert("Profile updated");
+    showToast("Profile updated successfully.");
   };
 
   const handlePhotoChange = (event) => {
@@ -298,6 +430,7 @@ function Dashboard() {
 
   return (
     <div className="dashboard-container">
+      {toast && <div className="dashboard-toast">{toast}</div>}
       <div className="topbar modern-topbar">
         <div>
           <h3>Student Community Platform</h3>
@@ -314,6 +447,9 @@ function Dashboard() {
           <button className={`sidebar-nav-btn ${activeTab === "feed" ? "active" : ""}`} onClick={() => setActiveTab("feed")}>🏠 Smart Feed</button>
           <button className={`sidebar-nav-btn ${activeTab === "bookmarks" ? "active" : ""}`} onClick={() => setActiveTab("bookmarks")}>🔖 Saved Posts</button>
           <button className={`sidebar-nav-btn ${activeTab === "opportunities" ? "active" : ""}`} onClick={() => setActiveTab("opportunities")}>🚀 Opportunities</button>
+          <button className={`sidebar-nav-btn ${activeTab === "resources" ? "active" : ""}`} onClick={() => setActiveTab("resources")}>📚 Learning Hub</button>
+          <button className={`sidebar-nav-btn ${activeTab === "goals" ? "active" : ""}`} onClick={() => setActiveTab("goals")}>🎯 Weekly Goals</button>
+          <button className={`sidebar-nav-btn ${activeTab === "moderation" ? "active" : ""}`} onClick={() => setActiveTab("moderation")}>🛡️ Moderation ({flaggedPosts.length})</button>
           <button className={`sidebar-nav-btn ${activeTab === "profile" ? "active" : ""}`} onClick={() => setActiveTab("profile")}>👤 Profile</button>
         </div>
 
@@ -364,6 +500,14 @@ function Dashboard() {
                             Delete
                           </button>
                         )}
+                        {post.user_id !== authUser?.id && (
+                          <select className="report-select" defaultValue="" onChange={(event) => reportPost(post, event.target.value)}>
+                            <option value="" disabled>Report</option>
+                            {REPORT_REASONS.map((reason) => (
+                              <option key={`${post.id}-${reason}`} value={reason}>{reason}</option>
+                            ))}
+                          </select>
+                        )}
                         <button className="bookmark-btn" onClick={() => toggleBookmark(post.id)}>
                           {bookmarks.includes(post.id) ? "★ Saved" : "☆ Save"}
                         </button>
@@ -387,6 +531,7 @@ function Dashboard() {
                       <button onClick={() => toggleLike(post)}>👍 {post.likes.length}</button>
                       <span>💬 {post.comments.length}</span>
                       <span>🔥 Score {post.score}</span>
+                      {post.reports.length > 0 && <span className="report-count">🚩 {post.reports.length}</span>}
                     </div>
 
                     <div style={{ marginTop: 12 }}>
@@ -409,6 +554,26 @@ function Dashboard() {
             </>
           )}
 
+          {activeTab === "moderation" && (
+            <div className="profile-section moderation-panel" style={{ maxWidth: 900 }}>
+              <h3>Community Moderation Queue</h3>
+              <p>Review flagged posts quickly and keep discussion professional.</p>
+              {flaggedPosts.length === 0 && <p className="empty-state">No flagged posts. Community looks healthy ✅</p>}
+              {flaggedPosts.map((post) => (
+                <div key={`flagged-${post.id}`} className="opportunity-card moderation-card">
+                  <div>
+                    <h4>{post.userName}</h4>
+                    <p>{post.content}</p>
+                    <small>
+                      Reports: {post.reports.length} · Reasons: {post.reports.map((item) => item.reason).join(", ")}
+                    </small>
+                  </div>
+                  <button onClick={() => resolveReports(post)}>Resolve</button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {activeTab === "opportunities" && (
             <div className="profile-section" style={{ maxWidth: 900 }}>
               <h3>Career & Growth Opportunities</h3>
@@ -425,6 +590,61 @@ function Dashboard() {
                   </a>
                 </div>
               ))}
+            </div>
+          )}
+
+          {activeTab === "resources" && (
+            <div className="profile-section" style={{ maxWidth: 900 }}>
+              <h3>Learning Hub</h3>
+              <p>Curated resources for interviews, open source and career growth.</p>
+              <div className="resource-grid">
+                {LEARNING_RESOURCES.map((resource) => (
+                  <a key={resource.title} href={resource.link} target="_blank" rel="noreferrer" className="resource-card">
+                    <small>{resource.type}</small>
+                    <h4>{resource.title}</h4>
+                    <span>Open resource →</span>
+                  </a>
+                ))}
+              </div>
+
+              <h4 style={{ marginTop: 20 }}>Top Contributors Leaderboard</h4>
+              <div className="leaderboard-wrap">
+                {leaderboard.length === 0 && <p className="empty-state">No activity yet. Be the first contributor 🚀</p>}
+                {leaderboard.map((item, index) => (
+                  <div key={item.userId} className="leaderboard-item">
+                    <b>#{index + 1} {item.name}</b>
+                    <span>{item.points} pts · {item.posts} posts</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "goals" && (
+            <div className="profile-section" style={{ maxWidth: 900 }}>
+              <h3>Weekly Goal Tracker</h3>
+              <p>Track your progress for consistency in learning and shipping.</p>
+              <div className="goal-input-row">
+                <input
+                  value={goalInput}
+                  onChange={(event) => setGoalInput(event.target.value)}
+                  placeholder="Ex: Solve 5 DSA problems / Build 1 mini project"
+                />
+                <button onClick={addGoal}>Add Goal</button>
+              </div>
+
+              <div className="goal-list-wrap">
+                {goals.length === 0 && <p className="empty-state">No goals yet. Add one and start building momentum.</p>}
+                {goals.map((goal) => (
+                  <div key={goal.id} className="goal-item">
+                    <label>
+                      <input type="checkbox" checked={goal.completed} onChange={() => toggleGoal(goal.id)} />
+                      <span className={goal.completed ? "goal-done" : ""}>{goal.title}</span>
+                    </label>
+                    <button onClick={() => removeGoal(goal.id)}>Remove</button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -471,7 +691,6 @@ function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Camera button */}
                   <button
                     type="button"
                     className="avatar-camera-btn"
@@ -501,6 +720,12 @@ function Dashboard() {
                 <h3>{profile.name || "Your Name"}</h3>
                 <p>{profile.email || "email@example.com"}</p>
 
+                <div className="profile-badge-wrap">
+                  {achievementBadges.map((badge) => (
+                    <span key={badge} className="profile-badge">{badge}</span>
+                  ))}
+                </div>
+
                 <div className="profile-completion-card">
                   <p>Profile Strength</p>
                   <div className="profile-progress-track">
@@ -523,9 +748,25 @@ function Dashboard() {
                     <small>Streak</small>
                   </div>
                 </div>
+
+                {skillTags.length > 0 && (
+                  <div className="skill-chip-wrap">
+                    {skillTags.map((skill) => (
+                      <span key={skill} className="skill-chip">{skill}</span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="profile-edit-card">
+                <div className="profile-hero-strip">
+                  <div>
+                    <h3>Talent Snapshot</h3>
+                    <p>Industry-grade profile card for recruiters, mentors, and collaborators.</p>
+                  </div>
+                  <span className="availability-pill">Open to internships</span>
+                </div>
+
                 <div className="profile-heading">
                   <h3>Profile Details</h3>
                   <p>Make your profile stand out to recruiters and peers.</p>
@@ -556,7 +797,7 @@ function Dashboard() {
                     </select>
                   </div>
                 </div>
-                
+
                 <div>
                   <label>Skills</label>
                   <input
@@ -567,13 +808,20 @@ function Dashboard() {
                   />
                 </div>
 
+                <div className="profile-checklist-card">
+                  <h4>Recruiter Readiness Checklist</h4>
+                  {profileChecklist.map((item) => (
+                    <p key={item.label} className="checklist-item">
+                      <span>{item.done ? "✅" : "⬜"}</span> {item.label}
+                    </p>
+                  ))}
+                </div>
+
                 <button className="save-profile-btn" onClick={saveProfile}>Save Profile</button>
               </div>
               <button onClick={exportPortfolio}>Export Resume-ready Portfolio JSON</button>
             </div>
           )}
-
-          {/* Removed legacy "Your Profile" section to keep only the modern profile UI */}
         </div>
       </div>
     </div>

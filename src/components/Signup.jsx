@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../style.css";
-import { registerUser } from "../mongodb";
+import { requestSignupVerification, verifySignupOtpAndCreateUser } from "../mongodb";
 
 function Signup() {
   const navigate = useNavigate();
@@ -11,9 +11,12 @@ function Signup() {
   const [gender, setGender] = useState("Male");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
 
-  const handleSignup = async () => {
+  const handleSendOtp = async () => {
     setError("");
+
     if (!name || !email || !password || !gender) {
       setError("Please fill all fields");
       return;
@@ -26,11 +29,30 @@ function Signup() {
 
     try {
       setLoading(true);
-      await registerUser({ name, email, password, gender });
-      alert("Signup successful! Please login.");
-      navigate("/login");
+      await requestSignupVerification({ name, email, password, gender });
+      setOtpSent(true);
     } catch (signupError) {
-      setError(signupError.message || "Signup failed");
+      setError(signupError.message || "Unable to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyAndCreate = async () => {
+    setError("");
+
+    if (!otp.trim()) {
+      setError("Please enter OTP sent to your Gmail");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await verifySignupOtpAndCreateUser({ email, otp });
+      alert("Email verified and account created successfully. Please login.");
+      navigate("/login");
+    } catch (verifyError) {
+      setError(verifyError.message || "OTP verification failed");
     } finally {
       setLoading(false);
     }
@@ -53,7 +75,31 @@ function Signup() {
 
         {error && <div className="auth-error">{error}</div>}
 
-        <button className="login-btn" onClick={handleSignup} disabled={loading}>{loading ? "Creating..." : "Create Account"}</button>
+        {otpSent && (
+          <>
+            <input
+              className="login-input"
+              type="text"
+              placeholder="Enter 6-digit OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+            />
+            <p className="auth-subtext" style={{ marginBottom: 10 }}>
+              Verification OTP has been sent to your Gmail. It expires in 10 minutes.
+            </p>
+          </>
+        )}
+
+        {!otpSent ? (
+          <button className="login-btn" onClick={handleSendOtp} disabled={loading}>{loading ? "Sending OTP..." : "Send Verification OTP"}</button>
+        ) : (
+          <>
+            <button className="login-btn" onClick={handleVerifyAndCreate} disabled={loading}>{loading ? "Verifying..." : "Verify OTP & Create Account"}</button>
+            <button className="login-btn" style={{ marginTop: 10 }} onClick={handleSendOtp} disabled={loading}>
+              {loading ? "Sending OTP..." : "Resend OTP"}
+            </button>
+          </>
+        )}
 
         <div className="auth-switch-link">
           Already have an account? <span onClick={() => navigate("/login")}>Log in</span>
