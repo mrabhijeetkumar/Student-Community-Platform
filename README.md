@@ -36,3 +36,6 @@ If these env vars are not provided, the app falls back to localStorage for local
 - Profile skills field + portfolio JSON export for resume attachments
 - Community moderation queue with post reporting and quick resolution tools
 - Basic content-quality guardrails to block harmful terms before publishing
+- Learning Hub with curated roadmap/interview/open-source resources
+- Weekly Goal Tracker for consistency and accountability
+- Top contributor leaderboard based on community impact points

@@ -42,6 +42,12 @@ const CATEGORY_COLORS = {
 
 const REPORT_REASONS = ["Spam", "Abusive language", "Off-topic", "Fake information"];
 const FLAGGED_TERMS = ["hate", "abuse", "fake-news"];
+const LEARNING_RESOURCES = [
+  { title: "DSA Roadmap", type: "Interview Prep", link: "https://neetcode.io/roadmap" },
+  { title: "System Design Primer", type: "Architecture", link: "https://github.com/donnemartin/system-design-primer" },
+  { title: "Open Source Guide", type: "Community", link: "https://opensource.guide/how-to-contribute/" },
+  { title: "Resume Checklist", type: "Career", link: "https://www.overleaf.com/latex/templates/tagged/cv" },
+];
 
 const formatDate = (value) => new Date(value).toLocaleString();
 
@@ -59,6 +65,8 @@ function Dashboard() {
   const [profile, setProfile] = useState({ name: "", email: "", phone: "", gender: "Male", photo: "", skills: "" });
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [goalInput, setGoalInput] = useState("");
+  const [goals, setGoals] = useState([]);
 
   const fileInputRef = useRef(null);
   const toastTimeoutRef = useRef(null);
@@ -130,6 +138,17 @@ function Dashboard() {
     };
   }, [authUser]);
 
+  useEffect(() => {
+    if (!authUser?.id) return;
+    const savedGoals = JSON.parse(localStorage.getItem(`goals_${authUser.id}`) || "[]");
+    setGoals(savedGoals);
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    localStorage.setItem(`goals_${authUser.id}`, JSON.stringify(goals));
+  }, [goals, authUser]);
+
   const postsWithUser = useMemo(() => {
     const decorated = posts.map((post) => ({
       ...post,
@@ -177,6 +196,27 @@ function Dashboard() {
     return { myPosts: mine.length, myLikesReceived, myCommentsReceived, streakDays: days.size };
   }, [posts, authUser]);
 
+  const leaderboard = useMemo(() => {
+    const byUser = posts.reduce((accumulator, post) => {
+      if (!accumulator[post.user_id]) {
+        accumulator[post.user_id] = { points: 0, posts: 0 };
+      }
+      accumulator[post.user_id].posts += 1;
+      accumulator[post.user_id].points += (post.likes?.length || 0) * 2 + (post.comments?.length || 0);
+      return accumulator;
+    }, {});
+
+    return Object.entries(byUser)
+      .map(([userId, stats]) => ({
+        userId,
+        name: usersById[userId]?.name || "Community Member",
+        points: stats.points,
+        posts: stats.posts,
+      }))
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 5);
+  }, [posts, usersById]);
+
   const profileCompletion = useMemo(() => {
     const fields = [profile.name, profile.phone, profile.gender, profile.skills, profile.photo];
     const completed = fields.filter((field) => String(field || "").trim()).length;
@@ -188,6 +228,25 @@ function Dashboard() {
     const updated = bookmarks.includes(postId) ? bookmarks.filter((id) => id !== postId) : [...bookmarks, postId];
     setBookmarks(updated);
     localStorage.setItem(`bookmarks_${authUser.id}`, JSON.stringify(updated));
+  };
+
+  const addGoal = () => {
+    const clean = goalInput.trim();
+    if (!clean) return;
+    const newGoal = { id: crypto.randomUUID(), title: clean, completed: false, created_at: new Date().toISOString() };
+    setGoals((previous) => [newGoal, ...previous]);
+    setGoalInput("");
+    showToast("Goal added to your weekly tracker.");
+  };
+
+  const toggleGoal = (goalId) => {
+    setGoals((previous) =>
+      previous.map((goal) => (goal.id === goalId ? { ...goal, completed: !goal.completed } : goal))
+    );
+  };
+
+  const removeGoal = (goalId) => {
+    setGoals((previous) => previous.filter((goal) => goal.id !== goalId));
   };
 
   const addPost = async () => {
@@ -364,6 +423,8 @@ function Dashboard() {
           <button className={`sidebar-nav-btn ${activeTab === "feed" ? "active" : ""}`} onClick={() => setActiveTab("feed")}>🏠 Smart Feed</button>
           <button className={`sidebar-nav-btn ${activeTab === "bookmarks" ? "active" : ""}`} onClick={() => setActiveTab("bookmarks")}>🔖 Saved Posts</button>
           <button className={`sidebar-nav-btn ${activeTab === "opportunities" ? "active" : ""}`} onClick={() => setActiveTab("opportunities")}>🚀 Opportunities</button>
+          <button className={`sidebar-nav-btn ${activeTab === "resources" ? "active" : ""}`} onClick={() => setActiveTab("resources")}>📚 Learning Hub</button>
+          <button className={`sidebar-nav-btn ${activeTab === "goals" ? "active" : ""}`} onClick={() => setActiveTab("goals")}>🎯 Weekly Goals</button>
           <button className={`sidebar-nav-btn ${activeTab === "moderation" ? "active" : ""}`} onClick={() => setActiveTab("moderation")}>🛡️ Moderation ({flaggedPosts.length})</button>
           <button className={`sidebar-nav-btn ${activeTab === "profile" ? "active" : ""}`} onClick={() => setActiveTab("profile")}>👤 Profile</button>
         </div>
@@ -505,6 +566,61 @@ function Dashboard() {
                   </a>
                 </div>
               ))}
+            </div>
+          )}
+
+          {activeTab === "resources" && (
+            <div className="profile-section" style={{ maxWidth: 900 }}>
+              <h3>Learning Hub</h3>
+              <p>Curated resources for interviews, open source and career growth.</p>
+              <div className="resource-grid">
+                {LEARNING_RESOURCES.map((resource) => (
+                  <a key={resource.title} href={resource.link} target="_blank" rel="noreferrer" className="resource-card">
+                    <small>{resource.type}</small>
+                    <h4>{resource.title}</h4>
+                    <span>Open resource →</span>
+                  </a>
+                ))}
+              </div>
+
+              <h4 style={{ marginTop: 20 }}>Top Contributors Leaderboard</h4>
+              <div className="leaderboard-wrap">
+                {leaderboard.length === 0 && <p className="empty-state">No activity yet. Be the first contributor 🚀</p>}
+                {leaderboard.map((item, index) => (
+                  <div key={item.userId} className="leaderboard-item">
+                    <b>#{index + 1} {item.name}</b>
+                    <span>{item.points} pts · {item.posts} posts</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "goals" && (
+            <div className="profile-section" style={{ maxWidth: 900 }}>
+              <h3>Weekly Goal Tracker</h3>
+              <p>Track your progress for consistency in learning and shipping.</p>
+              <div className="goal-input-row">
+                <input
+                  value={goalInput}
+                  onChange={(event) => setGoalInput(event.target.value)}
+                  placeholder="Ex: Solve 5 DSA problems / Build 1 mini project"
+                />
+                <button onClick={addGoal}>Add Goal</button>
+              </div>
+
+              <div className="goal-list-wrap">
+                {goals.length === 0 && <p className="empty-state">No goals yet. Add one and start building momentum.</p>}
+                {goals.map((goal) => (
+                  <div key={goal.id} className="goal-item">
+                    <label>
+                      <input type="checkbox" checked={goal.completed} onChange={() => toggleGoal(goal.id)} />
+                      <span className={goal.completed ? "goal-done" : ""}>{goal.title}</span>
+                    </label>
+                    <button onClick={() => removeGoal(goal.id)}>Remove</button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
