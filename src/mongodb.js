@@ -31,11 +31,18 @@ const setPendingSignups = (value) => localStorage.setItem(PENDING_SIGNUPS_KEY, J
 
 const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
-async function ensureEmailAvailable(cleanEmail) {
+async function ensureEmailAvailable(cleanEmail, { allowUnverified = false } = {}) {
   if (!hasAtlasConfig) {
-    const exists = getLocalUsers().some((u) => u.email === cleanEmail);
-    if (exists) throw new Error("Email already exists");
-    return;
+    const users = getLocalUsers();
+    const existing = users.find((u) => u.email === cleanEmail);
+
+    if (!existing) return null;
+
+    if (existing.emailVerified || !allowUnverified) {
+      throw new Error("Email already exists");
+    }
+
+    return existing;
   }
 
   const { document: existingUser } = await dataApi("findOne", {
@@ -43,9 +50,13 @@ async function ensureEmailAvailable(cleanEmail) {
     filter: { email: cleanEmail },
   });
 
-  if (existingUser) {
+  if (!existingUser) return null;
+
+  if (existingUser.emailVerified || !allowUnverified) {
     throw new Error("Email already exists");
   }
+
+  return existingUser;
 }
 
 export async function requestSignupVerification({ name, email, password, gender, otpOverride }) {
@@ -53,7 +64,7 @@ export async function requestSignupVerification({ name, email, password, gender,
   const trimmedName = String(name || "").trim();
   if (trimmedName.length < 2) throw new Error("Please enter a valid full name");
   if (String(password || "").length < 8) throw new Error("Password must be at least 8 characters");
-  await ensureEmailAvailable(cleanEmail);
+  await ensureEmailAvailable(cleanEmail, { allowUnverified: true });
 
   const otp = String(otpOverride || generateOtp());
   const pendingSignups = getPendingSignups();
@@ -94,9 +105,9 @@ export async function verifySignupOtpAndCreateUser({ email, otp }) {
     throw new Error("Invalid OTP. Please check and try again.");
   }
 
-  await ensureEmailAvailable(cleanEmail);
+  const now = new Date().toISOString();
 
-  const userDoc = {
+  let userDoc = {
     id: crypto.randomUUID(),
     name: pending.name,
     email: pending.email,
@@ -108,16 +119,54 @@ export async function verifySignupOtpAndCreateUser({ email, otp }) {
     language: "Eng",
     notification: "Allow",
     emailVerified: true,
-    emailVerifiedAt: new Date().toISOString(),
-    created_at: new Date().toISOString(),
+    emailVerifiedAt: now,
+    created_at: now,
   };
 
   if (!hasAtlasConfig) {
     const users = getLocalUsers();
-    users.push(userDoc);
+    const index = users.findIndex((u) => u.email === cleanEmail);
+
+    if (index !== -1) {
+      userDoc = { ...users[index], ...userDoc, emailVerified: true, emailVerifiedAt: now };
+      users[index] = userDoc;
+    } else {
+      users.push(userDoc);
+    }
+
     setLocalUsers(users);
   } else {
-    await dataApi("insertOne", { collection: "users", document: userDoc });
+    const { document: existingUser } = await dataApi("findOne", {
+      collection: "users",
+      filter: { email: cleanEmail },
+    });
+
+    if (existingUser) {
+      await dataApi("updateOne", {
+        collection: "users",
+        filter: { email: cleanEmail },
+        update: {
+          $set: {
+            name: pending.name,
+            gender: pending.gender,
+            passwordHash: pending.passwordHash,
+            emailVerified: true,
+            emailVerifiedAt: now,
+          },
+        },
+      });
+
+      userDoc = {
+        ...existingUser,
+        name: pending.name,
+        gender: pending.gender,
+        passwordHash: pending.passwordHash,
+        emailVerified: true,
+        emailVerifiedAt: now,
+      };
+    } else {
+      await dataApi("insertOne", { collection: "users", document: userDoc });
+    }
   }
 
   delete pendingSignups[cleanEmail];
