@@ -1,6 +1,6 @@
 import { FaceSmileIcon, PaperAirplaneIcon, PhotoIcon, SparklesIcon, TagIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import Notification from "./Notification";
 
@@ -21,16 +21,21 @@ function fileToDataUrl(file) {
     });
 }
 
-export default function CreatePost({ onSubmit, isSubmitting = false }) {
+export default function CreatePost({ onSubmit, isSubmitting = false, communities = [], defaultCommunityId = "" }) {
     const { user } = useAuth();
     const fileInputRef = useRef(null);
     const [content, setContent] = useState("");
     const [imageUrl, setImageUrl] = useState("");
     const [previewImage, setPreviewImage] = useState("");
     const [tagInput, setTagInput] = useState("");
+    const [selectedCommunityId, setSelectedCommunityId] = useState(defaultCommunityId);
     const [feedback, setFeedback] = useState("");
 
     const avatarFallback = user?.name?.charAt(0)?.toUpperCase() || "S";
+
+    useEffect(() => {
+        setSelectedCommunityId(defaultCommunityId || "");
+    }, [defaultCommunityId]);
 
     const resetComposer = () => {
         setContent("");
@@ -76,7 +81,8 @@ export default function CreatePost({ onSubmit, isSubmitting = false }) {
             await onSubmit({
                 content: content.trim(),
                 images: [previewImage || imageUrl].filter(Boolean),
-                tags: normalizedTags
+                tags: normalizedTags,
+                communityId: selectedCommunityId || undefined
             });
             resetComposer();
         } catch (error) {
@@ -88,16 +94,17 @@ export default function CreatePost({ onSubmit, isSubmitting = false }) {
         <motion.form
             layout
             onSubmit={handleSubmit}
-            className="card-surface sticky top-4 z-10 overflow-hidden p-5"
+            className="card-surface sticky top-4 z-10 overflow-hidden p-6"
         >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-brand-500/18 via-accent-400/12 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-brand-500/18 via-accent-400/12 to-transparent" />
+            <div className="floating-orb right-10 top-5 h-20 w-20 bg-accent-400/10" />
             <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 to-accent-400 font-bold text-white">
                         {user?.profilePhoto ? <img src={user.profilePhoto} alt={user.name} className="h-full w-full object-cover" /> : avatarFallback}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-white">Share with your network</p>
+                        <p className="display-title text-sm font-semibold text-white">Share with your network</p>
                         <p className="text-xs text-slate-400">Post project progress, ask for feedback, or surface campus opportunities.</p>
                     </div>
                 </div>
@@ -142,7 +149,7 @@ export default function CreatePost({ onSubmit, isSubmitting = false }) {
 
                 <textarea
                     rows="5"
-                    className="input-control"
+                    className="input-control min-h-[150px] rounded-[1.75rem]"
                     value={content}
                     onChange={(event) => setContent(event.target.value)}
                     placeholder="Start a discussion, share a milestone, or ask the community for help."
@@ -168,7 +175,7 @@ export default function CreatePost({ onSubmit, isSubmitting = false }) {
                     </div>
                 ) : null}
 
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_auto_auto]">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto_auto]">
                     <input
                         className="input-control"
                         value={imageUrl}
@@ -187,6 +194,18 @@ export default function CreatePost({ onSubmit, isSubmitting = false }) {
                             placeholder="Tags: react, ui, hackathon"
                         />
                     </div>
+                    <select
+                        className="input-control"
+                        value={selectedCommunityId}
+                        onChange={(event) => setSelectedCommunityId(event.target.value)}
+                    >
+                        <option value="">Post to main feed</option>
+                        {communities.map((community) => (
+                            <option key={community._id} value={community._id}>
+                                {community.name}
+                            </option>
+                        ))}
+                    </select>
                     <label className="btn-secondary cursor-pointer gap-2">
                         <PhotoIcon className="h-5 w-5" />
                         Upload

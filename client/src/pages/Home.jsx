@@ -1,24 +1,57 @@
 import { ArrowTrendingUpIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import CreatePost from "../components/CreatePost";
 import PostCard from "../components/PostCard";
 import LoadingCard from "../components/ui/LoadingCard";
 import Notification from "../components/Notification";
+import PageHero from "../components/ui/PageHero";
 import PageTransition from "../components/ui/PageTransition";
 import { useAuth } from "../context/AuthContext.jsx";
-import { createPost, getPosts } from "../services/api";
+import { createPost, getCommunities, getPosts } from "../services/api";
 
-const feedTypes = ["smart", "latest", "following", "trending"];
+const feedTypes = ["smart", "latest", "following", "trending", "saved"];
 
 export default function Home() {
-    const { token } = useAuth();
+    const { token, user } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [feedType, setFeedType] = useState("smart");
     const [posts, setPosts] = useState([]);
+    const [communities, setCommunities] = useState([]);
     const [visibleCount, setVisibleCount] = useState(4);
     const [loading, setLoading] = useState(true);
     const [posting, setPosting] = useState(false);
     const [feedback, setFeedback] = useState("");
     const sentinelRef = useRef(null);
+    const selectedCommunitySlug = searchParams.get("community") || "";
+    const selectedCommunity = useMemo(
+        () => communities.find((community) => community.slug === selectedCommunitySlug) || null,
+        [communities, selectedCommunitySlug]
+    );
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadCommunities = async () => {
+            try {
+                const communityItems = await getCommunities(token);
+
+                if (isMounted) {
+                    setCommunities(communityItems);
+                }
+            } catch {
+                if (isMounted) {
+                    setCommunities([]);
+                }
+            }
+        };
+
+        loadCommunities();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [token]);
 
     useEffect(() => {
         let isMounted = true;
@@ -26,7 +59,9 @@ export default function Home() {
         const loadFeed = async () => {
             setLoading(true);
             try {
-                const items = await getPosts(feedType, token);
+                const items = await getPosts(feedType, token, {
+                    communityId: selectedCommunity?._id
+                });
                 if (isMounted) {
                     setPosts(items);
                     setVisibleCount(4);
@@ -48,7 +83,7 @@ export default function Home() {
         return () => {
             isMounted = false;
         };
-    }, [feedType, token]);
+    }, [feedType, selectedCommunity?._id, token]);
 
     useEffect(() => {
         const observer = new IntersectionObserver((entries) => {
@@ -83,9 +118,9 @@ export default function Home() {
         return [
             { label: "Visible posts", value: posts.length, detail: `${visiblePosts.length} on screen` },
             { label: "Active creators", value: creatorCount, detail: "Distinct student voices" },
-            { label: "Total likes", value: totalLikes, detail: topTags.length ? `Top tags: ${topTags.join(", ")}` : "Fresh discussion mix" }
+            { label: "Total likes", value: totalLikes, detail: selectedCommunity ? `${selectedCommunity.name} feed` : (topTags.length ? `Top tags: ${topTags.join(", ")}` : "Fresh discussion mix") }
         ];
-    }, [posts, visiblePosts.length]);
+    }, [posts, selectedCommunity, visiblePosts.length]);
 
     const handleCreatePost = async (payload) => {
         setPosting(true);
@@ -102,7 +137,16 @@ export default function Home() {
     };
 
     const handlePostUpdated = (updatedPost) => {
-        setPosts((currentPosts) => currentPosts.map((post) => (post._id === updatedPost._id ? updatedPost : post)));
+        setPosts((currentPosts) => {
+            const shouldStayInSavedFeed = feedType !== "saved"
+                || updatedPost.savedBy?.some((savedUserId) => (typeof savedUserId === "string" ? savedUserId : savedUserId._id) === user?._id);
+
+            if (!shouldStayInSavedFeed) {
+                return currentPosts.filter((post) => post._id !== updatedPost._id);
+            }
+
+            return currentPosts.map((post) => (post._id === updatedPost._id ? updatedPost : post));
+        });
     };
 
     const handlePostDeleted = (postId) => {
@@ -111,24 +155,84 @@ export default function Home() {
 
     return (
         <PageTransition className="space-y-6">
-            <div className="card-surface overflow-hidden p-5">
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] xl:items-end">
-                    <div>
-                        <div className="mb-5 flex flex-wrap items-center gap-3">
-                            <span className="inline-flex items-center gap-2 rounded-full border border-brand-400/20 bg-brand-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-brand-100">
-                                <SparklesIcon className="h-4 w-4" />
-                                Social feed
-                            </span>
-                            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-slate-300">
-                                <ArrowTrendingUpIcon className="h-4 w-4 text-accent-300" />
-                                Infinite scroll enabled
-                            </span>
-                        </div>
-                        <p className="section-title">Community feed</p>
-                        <h2 className="mt-2 text-balance text-3xl font-bold text-white">Relevant discussions, project launches, and student momentum in one stream.</h2>
-                        <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-400">Switch between smart, latest, following, and trending views while the feed progressively reveals more posts as you scroll.</p>
+            <PageHero
+                eyebrow="Community feed"
+                title="Relevant discussions, project launches, and student momentum in one stream."
+                description="Switch between smart, latest, following, trending, and saved views while the feed progressively reveals more posts as you scroll."
+                orbClassName="bg-brand-500/12"
+                badges={(
+                    <>
+                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-400/20 bg-brand-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-brand-100">
+                            <SparklesIcon className="h-4 w-4" />
+                            Social feed
+                        </span>
+                        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-slate-300">
+                            <ArrowTrendingUpIcon className="h-4 w-4 text-accent-300" />
+                            Infinite scroll enabled
+                        </span>
+                        {selectedCommunity ? <span className="pill-tag">Scoped to {selectedCommunity.name}</span> : null}
+                    </>
+                )}
+                aside={(
+                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                        {feedInsights.map((item) => (
+                            <div key={item.label} className="stat-tile shadow-xl">
+                                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{item.label}</p>
+                                <p className="display-title mt-2 text-2xl font-bold text-white">{item.value}</p>
+                                <p className="mt-1 text-sm text-slate-400">{item.detail}</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            >
+                <div className="grid gap-3 sm:grid-cols-2 xl:max-w-2xl">
+                    <div className="floating-metric px-4 py-4">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Feed quality</p>
+                        <p className="display-title mt-2 text-lg font-bold text-white">Linear-style focus, social-first utility</p>
+                        <p className="mt-1 text-sm text-slate-400">Structured for scanning, discussion, and high-signal updates.</p>
+                    </div>
+                    <div className="floating-metric px-4 py-4">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Experience</p>
+                        <p className="display-title mt-2 text-lg font-bold text-white">Glass surfaces with motion</p>
+                        <p className="mt-1 text-sm text-slate-400">Ambient depth, floating filters, and startup-grade polish.</p>
+                    </div>
+                </div>
 
-                        <div className="mt-5 flex flex-wrap gap-2">
+                <div className="card-ghost px-4 py-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Community scope</p>
+                            <p className="mt-1 text-sm text-slate-300">Jump into a specific circle or pull back to the full platform feed.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                className={selectedCommunity ? "btn-secondary px-4 py-2 text-xs" : "btn-primary px-4 py-2 text-xs"}
+                                onClick={() => setSearchParams({})}
+                            >
+                                All communities
+                            </button>
+                            {communities.slice(0, 5).map((community) => (
+                                <button
+                                    key={community._id}
+                                    type="button"
+                                    className={selectedCommunitySlug === community.slug ? "btn-primary px-4 py-2 text-xs" : "btn-secondary px-4 py-2 text-xs"}
+                                    onClick={() => setSearchParams({ community: community.slug })}
+                                >
+                                    {community.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="card-ghost px-4 py-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Feed mode</p>
+                            <p className="mt-1 text-sm text-slate-300">Shift between ranking models without leaving the main stream.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
                             {feedTypes.map((type) => (
                                 <button
                                     key={type}
@@ -141,21 +245,11 @@ export default function Home() {
                             ))}
                         </div>
                     </div>
-
-                    <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                        {feedInsights.map((item) => (
-                            <div key={item.label} className="stat-tile">
-                                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{item.label}</p>
-                                <p className="mt-2 text-2xl font-bold text-white">{item.value}</p>
-                                <p className="mt-1 text-sm text-slate-400">{item.detail}</p>
-                            </div>
-                        ))}
-                    </div>
                 </div>
-            </div>
+            </PageHero>
 
             <Notification tone="warning" message={feedback} />
-            <CreatePost onSubmit={handleCreatePost} isSubmitting={posting} />
+            <CreatePost onSubmit={handleCreatePost} isSubmitting={posting} communities={communities} defaultCommunityId={selectedCommunity?._id || ""} />
 
             <div className="space-y-5">
                 {loading ? Array.from({ length: 3 }).map((_, index) => <LoadingCard key={`feed-loading-${index}`} lines={5} />) : null}

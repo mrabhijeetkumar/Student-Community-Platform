@@ -10,6 +10,7 @@ import {
 import { BookmarkIcon as SolidBookmarkIcon, HeartIcon as SolidHeartIcon } from "@heroicons/react/24/solid";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { deletePost, toggleLike, toggleSavePost, updatePost } from "../services/api";
 import { useAuth } from "../context/AuthContext.jsx";
 import CommentBox from "./CommentBox";
@@ -93,7 +94,12 @@ export default function PostCard({ post, onUpdated, onDeleted }) {
         }
 
         try {
-            const updatedPost = await updatePost(post._id, { content: draftContent.trim(), images: post.images, tags: post.tags }, token);
+            const updatedPost = await updatePost(post._id, {
+                content: draftContent.trim(),
+                images: post.images,
+                tags: post.tags,
+                communityId: post.community?._id || ""
+            }, token);
             onUpdated(updatedPost);
             setEditing(false);
             setFeedback("");
@@ -133,10 +139,11 @@ export default function PostCard({ post, onUpdated, onDeleted }) {
     return (
         <motion.article
             layout
-            whileHover={{ y: -2 }}
+            whileHover={{ y: -4 }}
             transition={{ duration: 0.18 }}
             className="card-surface overflow-hidden p-5"
         >
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-white/[0.05] via-white/[0.02] to-transparent" />
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div className="flex items-start gap-4">
                     <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 to-accent-400 text-sm font-bold text-white">
@@ -144,7 +151,7 @@ export default function PostCard({ post, onUpdated, onDeleted }) {
                     </div>
                     <div>
                         <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-semibold text-white">{post.author?.name}</p>
+                            <p className="display-title font-semibold text-white">{post.author?.name}</p>
                             {isOwner ? <span className="rounded-full border border-brand-400/20 bg-brand-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-100">You</span> : null}
                             {engagementCount >= 8 ? <span className="rounded-full border border-accent-400/20 bg-accent-400/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-accent-200">Hot</span> : null}
                         </div>
@@ -153,6 +160,14 @@ export default function PostCard({ post, onUpdated, onDeleted }) {
                             <span className="uppercase tracking-[0.22em] text-accent-300">{timeLabel}</span>
                             <span className="h-1 w-1 rounded-full bg-slate-600" />
                             <span>{formatCompactNumber(engagementCount)} interactions</span>
+                            {post.community ? (
+                                <>
+                                    <span className="h-1 w-1 rounded-full bg-slate-600" />
+                                    <Link to={`/?community=${post.community.slug}`} className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-300 transition hover:border-accent-400/30 hover:text-white">
+                                        {post.community.name}
+                                    </Link>
+                                </>
+                            ) : null}
                         </div>
                     </div>
                 </div>
@@ -187,6 +202,10 @@ export default function PostCard({ post, onUpdated, onDeleted }) {
             <Notification tone="warning" message={feedback} />
 
             <div className="mt-4 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                    <span className="floating-metric px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">Post</span>
+                    {post.community ? <span className="floating-metric px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-200">{post.community.category || "Community"}</span> : null}
+                </div>
                 {editing ? (
                     <div className="space-y-3">
                         <textarea rows="5" className="input-control" value={draftContent} onChange={(event) => setDraftContent(event.target.value)} />
@@ -196,7 +215,7 @@ export default function PostCard({ post, onUpdated, onDeleted }) {
                         </div>
                     </div>
                 ) : (
-                    <p className="whitespace-pre-wrap text-sm leading-7 text-slate-200">{post.content}</p>
+                    <p className="whitespace-pre-wrap text-[15px] leading-8 text-slate-200">{post.content}</p>
                 )}
 
                 {post.images?.length ? (

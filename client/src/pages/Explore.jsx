@@ -1,11 +1,12 @@
-import { MagnifyingGlassIcon, RectangleStackIcon, UserGroupIcon } from "@heroicons/react/24/outline";
-import { useDeferredValue, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { MagnifyingGlassIcon, RectangleStackIcon, SparklesIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import PageTransition from "../components/ui/PageTransition";
 import PostCard from "../components/PostCard";
 import UserCard from "../components/UserCard";
 import LoadingCard from "../components/ui/LoadingCard";
 import Notification from "../components/Notification";
+import PageHero from "../components/ui/PageHero";
 import { useAuth } from "../context/AuthContext.jsx";
 import { getPosts, getUserDirectory } from "../services/api";
 
@@ -37,6 +38,13 @@ export default function Explore() {
     const [trendingLoading, setTrendingLoading] = useState(true);
     const [feedback, setFeedback] = useState("");
     const deferredQuery = useDeferredValue(query.trim());
+    const exploreInsights = useMemo(() => {
+        return [
+            { label: "People", value: directory.length, detail: deferredQuery ? `Results for ${deferredQuery}` : "Directory matches" },
+            { label: "Trending", value: trendingPosts.length, detail: "High-signal posts" },
+            { label: "Clusters", value: communities.length, detail: "Community prompts" }
+        ];
+    }, [deferredQuery, directory.length, trendingPosts.length]);
 
     useEffect(() => {
         const urlQuery = searchParams.get("q") || "";
@@ -110,34 +118,56 @@ export default function Explore() {
 
     return (
         <PageTransition className="space-y-6">
-            <div className="card-surface p-6">
-                <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                    <div>
-                        <p className="section-title">Explore</p>
-                        <h1 className="mt-2 text-3xl font-bold text-white">Discover trending conversations, communities, and student talent.</h1>
-                        <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-400">This is the discovery layer for finding peers, joining interest clusters, and browsing what is gaining momentum across the platform.</p>
-                    </div>
-                    <div className="flex w-full items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-4 py-3 xl:max-w-md">
-                        <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
-                        <input
-                            className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
-                            placeholder="Search by name, username, college, or skill"
-                            value={query}
-                            onChange={(event) => setQuery(event.target.value)}
-                        />
-                    </div>
-                </div>
-                <div className="mt-5 flex flex-wrap gap-3">
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-slate-300">
-                        {directoryLoading ? "Searching directory..." : `${directory.length} people found`}
-                    </span>
-                    {deferredQuery ? (
-                        <span className="rounded-full border border-brand-400/20 bg-brand-500/10 px-3 py-2 text-xs font-medium text-brand-100">
-                            Query: {deferredQuery}
+            <PageHero
+                eyebrow="Explore"
+                title="Discover trending conversations, communities, and student talent."
+                description="This is the discovery layer for finding peers, joining interest clusters, and browsing what is gaining momentum across the platform."
+                orbClassName="bg-brand-500/12"
+                badges={(
+                    <>
+                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-400/20 bg-brand-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-brand-100">
+                            <SparklesIcon className="h-4 w-4" />
+                            Discovery layer
                         </span>
-                    ) : null}
+                        <span className="pill-tag">{directoryLoading ? "Searching directory..." : `${directory.length} people found`}</span>
+                        {deferredQuery ? <span className="pill-tag">Query: {deferredQuery}</span> : null}
+                    </>
+                )}
+                aside={(
+                    <div className="space-y-3">
+                        <div className="card-ghost flex items-center gap-3 px-4 py-3">
+                            <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
+                            <input
+                                className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                                placeholder="Search by name, username, college, or skill"
+                                value={query}
+                                onChange={(event) => setQuery(event.target.value)}
+                            />
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                            {exploreInsights.map((item) => (
+                                <div key={item.label} className="stat-tile shadow-xl">
+                                    <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{item.label}</p>
+                                    <p className="display-title mt-2 text-2xl font-bold text-white">{item.value}</p>
+                                    <p className="mt-1 text-sm text-slate-400">{item.detail}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            >
+                <div className="card-ghost px-4 py-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Browse modes</p>
+                            <p className="mt-1 text-sm text-slate-300">Switch between people discovery, community prompts, and trending content from one surface.</p>
+                        </div>
+                        <Link to="/communities" className="btn-secondary">
+                            Open communities
+                        </Link>
+                    </div>
                 </div>
-            </div>
+            </PageHero>
 
             <Notification tone="warning" message={feedback} />
 
@@ -184,8 +214,13 @@ export default function Explore() {
 
                 <section className="space-y-5">
                     <div className="card-surface p-5">
-                        <h2 className="text-xl font-semibold text-white">Trending posts</h2>
-                        <p className="mt-1 text-sm text-slate-400">High-engagement discussions currently shaping the network.</p>
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <h2 className="text-xl font-semibold text-white">Trending posts</h2>
+                                <p className="mt-1 text-sm text-slate-400">High-engagement discussions currently shaping the network.</p>
+                            </div>
+                            <span className="pill-tag">Top 4</span>
+                        </div>
                     </div>
                     {trendingLoading ? Array.from({ length: 2 }).map((_, index) => <LoadingCard key={`trending-loading-${index}`} lines={5} />) : null}
                     {!trendingLoading && trendingPosts.map((post) => (

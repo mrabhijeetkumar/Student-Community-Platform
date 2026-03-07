@@ -27,19 +27,19 @@ export default function Sidebar() {
     const { user, logout } = useAuth();
 
     return (
-        <aside className="hidden lg:block lg:w-[280px] lg:shrink-0">
-            <div className="card-surface sticky top-4 flex min-h-[calc(100vh-2rem)] flex-col justify-between p-5">
-                <div className="space-y-8">
-                    <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-brand-500/20 via-white/[0.05] to-accent-400/10 p-5">
+        <aside className="hidden lg:block lg:w-[264px] lg:flex-none">
+            <div className="card-surface sticky top-4 flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden p-4">
+                <div className="scrollbar-subtle min-h-0 flex-1 space-y-6 overflow-y-auto pr-1">
+                    <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-gradient-to-br from-brand-500/20 via-white/[0.05] to-accent-400/10 p-5 shadow-2xl">
                         <p className="section-title">Campus OS</p>
-                        <h1 className="mt-3 text-2xl font-extrabold text-white">Student social layer</h1>
-                        <p className="mt-2 text-sm leading-6 text-slate-300">A LinkedIn, Reddit, and Discord inspired community surface for student identity, discussions, and collaboration.</p>
+                        <h1 className="display-title mt-3 text-[1.75rem] font-extrabold leading-tight text-white">Student social layer</h1>
+                        <p className="mt-2 text-sm leading-6 text-slate-300">A focused student workspace for identity, discussion, and collaboration.</p>
                         <div className="mt-5 grid grid-cols-2 gap-3">
-                            <Link to="/" className="rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-3 transition hover:bg-white/[0.08]">
+                            <Link to="/" className="floating-metric px-3 py-3 transition hover:-translate-y-0.5">
                                 <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Focus</p>
                                 <p className="mt-1 text-sm font-semibold text-white">Live feed</p>
                             </Link>
-                            <Link to="/communities" className="rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-3 transition hover:bg-white/[0.08]">
+                            <Link to="/communities" className="floating-metric px-3 py-3 transition hover:-translate-y-0.5">
                                 <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Connect</p>
                                 <p className="mt-1 text-sm font-semibold text-white">Groups</p>
                             </Link>
@@ -57,9 +57,11 @@ export default function Sidebar() {
                                         <motion.div
                                             whileHover={{ x: 4 }}
                                             whileTap={{ scale: 0.98 }}
-                                            className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${isActive ? "bg-brand-500 text-white shadow-glow" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}
+                                            className={`flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-semibold transition ${isActive ? "bg-brand-500/90 text-white shadow-glow" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}
                                         >
-                                            <Icon className="h-5 w-5" />
+                                            <span className={`flex h-9 w-9 items-center justify-center rounded-2xl border transition ${isActive ? "border-white/15 bg-white/10" : "border-white/10 bg-white/[0.03]"}`}>
+                                                <Icon className="h-[18px] w-[18px]" />
+                                            </span>
                                             {item.label}
                                         </motion.div>
                                     )}
@@ -68,7 +70,7 @@ export default function Sidebar() {
                         })}
                     </nav>
 
-                    <div className="card-ghost p-4">
+                    <div className="card-ghost overflow-hidden p-4 shadow-xl">
                         <div className="flex items-center gap-3">
                             <div className="rounded-2xl bg-brand-500/10 p-3 text-brand-100">
                                 <SparklesIcon className="h-5 w-5" />
@@ -81,8 +83,8 @@ export default function Sidebar() {
                     </div>
                 </div>
 
-                <div className="space-y-4">
-                    <motion.div whileHover={{ y: -2 }} className="card-ghost p-4">
+                <div className="mt-4 space-y-4 border-t border-white/10 pt-4">
+                    <motion.div whileHover={{ y: -2 }} className="card-ghost overflow-hidden p-4 shadow-xl">
                         <div className="flex items-center gap-3">
                             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 to-accent-400 font-bold text-white">
                                 {user?.profilePhoto ? <img src={user.profilePhoto} alt={user.name} className="h-full w-full object-cover" /> : user?.name?.charAt(0)?.toUpperCase()}
@@ -94,7 +96,7 @@ export default function Sidebar() {
                         </div>
                         <p className="mt-3 text-xs text-slate-400">{user?.college || user?.headline || "Verified student member"}</p>
                     </motion.div>
-                    <button type="button" onClick={logout} className="btn-secondary w-full gap-2">
+                    <button type="button" onClick={logout} className="btn-secondary w-full gap-2 py-3">
                         <ArrowRightStartOnRectangleIcon className="h-5 w-5" />
                         Logout
                     </button>

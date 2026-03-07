@@ -12,6 +12,7 @@ import userRoutes from "./routes/userRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import communityRoutes from "./routes/communityRoutes.js";
 import initializeSocket from "./socket/socket.js";
 import Message from "./models/Message.js";
 
@@ -41,6 +42,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/communities", communityRoutes);
 
 // test route
 app.get("/", (req, res) => {

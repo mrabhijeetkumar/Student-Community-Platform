@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -37,11 +39,13 @@
         color: var(--text-main);
         background-color: var(--bg-base);
         background-image:
-            radial-gradient(circle at top left, rgba(99, 102, 241, 0.22), transparent 30%),
-            radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 28%),
+            radial-gradient(circle at 12% 10%, rgba(99, 102, 241, 0.22), transparent 22%),
+            radial-gradient(circle at 88% 12%, rgba(56, 189, 248, 0.18), transparent 24%),
+            radial-gradient(circle at 50% 32%, rgba(15, 23, 42, 0.12), transparent 28%),
             linear-gradient(180deg, transparent, var(--bg-overlay)),
             theme("backgroundImage.social-grid");
         background-attachment: fixed;
+        overflow-x: hidden;
     }
 
     #root {
@@ -61,20 +65,32 @@
         border-color: var(--border);
         border-radius: 2rem;
         background-color: var(--surface);
-        background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
-        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
+        background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+        box-shadow: 0 24px 64px rgba(2, 6, 23, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
 
-    .dark .card-surface {
-        box-shadow: 0 24px 64px rgba(2, 6, 23, 0.34);
+    .card-surface::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        padding: 1px;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.02) 35%, rgba(56, 189, 248, 0.08) 100%);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
     }
 
     .card-ghost {
         @apply border backdrop-blur-lg;
         position: relative;
         border-color: var(--border);
-        border-radius: 1.6rem;
+        border-radius: 2rem;
         background-color: var(--surface-soft);
+        background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.018));
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 22px 56px rgba(56, 189, 248, 0.1);
     }
 
     .input-control {
@@ -82,6 +98,7 @@
         color: var(--text-main);
         border: 1px solid var(--border);
         background-color: var(--surface-strong);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
     }
 
     .input-control::placeholder {
@@ -95,8 +112,10 @@
 
     .btn-primary {
         @apply inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50;
-        background-image: linear-gradient(135deg, #6366f1, #38bdf8);
-        box-shadow: 0 12px 28px rgba(99, 102, 241, 0.32);
+        position: relative;
+        overflow: hidden;
+        background-image: linear-gradient(135deg, #6366f1, #4f7cff 45%, #38bdf8 100%);
+        box-shadow: 0 14px 32px rgba(99, 102, 241, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.16);
     }
 
     .btn-primary:hover {
@@ -104,16 +123,42 @@
         transform: translateY(-1px);
     }
 
+    .btn-primary:focus {
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.25);
+    }
+
+    .btn-primary::after {
+        content: "";
+        position: absolute;
+        inset: -40% auto -40% -140%;
+        width: 42%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+        transform: rotate(14deg);
+        transition: left 0.45s ease;
+    }
+
+    .btn-primary:hover::after {
+        left: 135%;
+    }
+
     .btn-secondary {
         @apply inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition;
         color: var(--text-main);
         border: 1px solid var(--border);
         background-color: var(--surface-soft);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
 
     .btn-secondary:hover {
         border-color: rgba(56, 189, 248, 0.4);
-        background-color: rgba(255, 255, 255, 0.16);
+        background-color: rgba(255, 255, 255, 0.08);
+        color: #ffffff;
+    }
+
+    .btn-secondary:focus {
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
     }
 
     .icon-button {
@@ -121,11 +166,13 @@
         color: var(--text-main);
         border: 1px solid var(--border);
         background-color: var(--surface-soft);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
 
     .icon-button:hover {
         border-color: rgba(56, 189, 248, 0.4);
-        background-color: rgba(255, 255, 255, 0.16);
+        background-color: rgba(255, 255, 255, 0.08);
+        color: #ffffff;
     }
 
     .section-title {
@@ -144,10 +191,46 @@
         @apply rounded-2xl border p-4;
         border-color: var(--border);
         background-color: var(--surface-soft);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
 
     .text-subtle {
         color: var(--text-muted);
+    }
+
+    .stat-tile {
+        @apply rounded-3xl p-4;
+        border: 1px solid var(--border);
+        background-color: var(--surface-soft);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .display-title {
+        font-family: "Space Grotesk", "Manrope", system-ui, sans-serif;
+        letter-spacing: -0.04em;
+    }
+
+    .headline-gradient {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(191, 219, 254, 0.95) 48%, rgba(125, 211, 252, 0.86));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .floating-metric {
+        border: 1px solid var(--border);
+        border-radius: 1.5rem;
+        background: var(--surface-soft);
+        backdrop-filter: blur(22px);
+        box-shadow: 0 18px 44px rgba(2, 6, 23, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    .floating-orb {
+        position: absolute;
+        border-radius: 999px;
+        filter: blur(48px);
+        opacity: 0.85;
+        pointer-events: none;
     }
 }
 
@@ -172,5 +255,9 @@
 
     .surface-divider {
         border-image: linear-gradient(90deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)) 1;
+    }
+
+    .text-shadow-soft {
+        text-shadow: 0 10px 40px rgba(15, 23, 42, 0.28);
     }
 }

@@ -1,4 +1,5 @@
 import Comment from "../models/Comment.js";
+import Community from "../models/Community.js";
 import Notification from "../models/Notification.js";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
@@ -17,8 +18,10 @@ const buildLastSevenDays = () => {
 };
 
 export const getUserDashboard = async (req, res) => {
-    const [totalPosts, recentNotifications, recentMessages] = await Promise.all([
+    const [totalPosts, totalSavedPosts, joinedCommunities, recentNotifications, recentMessages] = await Promise.all([
         Post.countDocuments({ author: req.user._id }),
+        Post.countDocuments({ savedBy: req.user._id }),
+        Community.countDocuments({ members: req.user._id }),
         Notification.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(5),
         req.models?.Message
             ? req.models.Message.find({ recipient: req.user._id }).sort({ createdAt: -1 }).limit(5)
@@ -28,6 +31,8 @@ export const getUserDashboard = async (req, res) => {
     res.json({
         stats: {
             totalPosts,
+            totalSavedPosts,
+            joinedCommunities,
             totalFollowers: req.user.followers.length,
             totalFollowing: req.user.following.length
         },
@@ -38,11 +43,12 @@ export const getUserDashboard = async (req, res) => {
 };
 
 export const getAdminDashboard = async (req, res) => {
-    const [totalUsers, totalPosts, totalComments, verifiedUsers] = await Promise.all([
+    const [totalUsers, totalPosts, totalComments, verifiedUsers, totalCommunities] = await Promise.all([
         User.countDocuments(),
         Post.countDocuments(),
         Comment.countDocuments(),
-        User.countDocuments({ isEmailVerified: true })
+        User.countDocuments({ isEmailVerified: true }),
+        Community.countDocuments()
     ]);
 
     const days = buildLastSevenDays();
@@ -70,6 +76,7 @@ export const getAdminDashboard = async (req, res) => {
             totalPosts,
             totalComments,
             verifiedUsers,
+            totalCommunities,
             engagementRate: totalUsers === 0 ? 0 : Number(((totalPosts + totalComments) / totalUsers).toFixed(2))
         },
         chart

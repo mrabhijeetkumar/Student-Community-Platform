@@ -28,7 +28,7 @@ export default function NotificationPanel({ open, notifications = [], unreadCoun
                     >
                         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                             <div>
-                                <p className="text-sm font-semibold text-white">Notifications</p>
+                                <p className="display-title text-sm font-semibold text-white">Notifications</p>
                                 <p className="text-xs text-slate-400">{unreadCount} unread updates</p>
                             </div>
                             <button type="button" className="text-xs font-medium text-accent-300 transition hover:text-accent-200" onClick={onMarkAllRead}>
@@ -49,7 +49,7 @@ export default function NotificationPanel({ open, notifications = [], unreadCoun
                                         whileHover={{ y: -2 }}
                                         type="button"
                                         onClick={() => onMarkRead(item._id)}
-                                        className={`flex w-full gap-3 rounded-3xl border px-4 py-4 text-left transition ${item.isRead ? "border-white/8 bg-white/[0.03]" : "border-brand-400/30 bg-brand-500/10"}`}
+                                        className={`flex w-full gap-3 rounded-3xl border px-4 py-4 text-left transition ${item.isRead ? "border-white/8 bg-white/[0.03]" : "border-brand-400/30 bg-brand-500/10 shadow-glow"}`}
                                     >
                                         <div className="mt-1 rounded-2xl bg-white/[0.06] p-2 text-accent-300">
                                             <Icon className="h-5 w-5" />

@@ -56,8 +56,18 @@ export function fetchSession(token) {
     });
 }
 
-export function getPosts(type = "smart", token) {
-    return request(`/posts/feed?type=${type}`, {
+export function getPosts(type = "smart", token, options = {}) {
+    const params = new URLSearchParams({ type });
+
+    if (options.limit) {
+        params.set("limit", String(options.limit));
+    }
+
+    if (options.communityId) {
+        params.set("communityId", options.communityId);
+    }
+
+    return request(`/posts/feed?${params.toString()}`, {
         headers: {
             Authorization: `Bearer ${token}`
         }
@@ -176,6 +186,44 @@ export function getUserDirectory(token, query = "") {
 
 export function getSuggestedUsers(token) {
     return request("/users/suggestions", {
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+}
+
+export function getCommunities(token, query = "", options = {}) {
+    const params = new URLSearchParams();
+
+    if (query) {
+        params.set("q", query);
+    }
+
+    if (options.featuredOnly) {
+        params.set("featured", "1");
+    }
+
+    const search = params.toString() ? `?${params.toString()}` : "";
+
+    return request(`/communities${search}`, {
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+}
+
+export function joinCommunity(slug, token) {
+    return request(`/communities/${slug}/join`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+}
+
+export function leaveCommunity(slug, token) {
+    return request(`/communities/${slug}/join`, {
+        method: "DELETE",
         headers: {
             Authorization: `Bearer ${token}`
         }

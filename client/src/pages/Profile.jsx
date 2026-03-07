@@ -142,20 +142,34 @@ export default function Profile() {
 
             {isOwnProfile && editOpen ? (
                 <form onSubmit={handleSaveProfile} className="card-surface p-6">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                         <div>
                             <p className="section-title">Edit profile</p>
                             <h3 className="mt-2 text-xl font-bold text-white">Keep your public student identity current.</h3>
                             <p className="mt-2 text-sm text-slate-400">Update your banner details, public bio, and skills shown across the network.</p>
                         </div>
+                        <div className="card-subtle px-4 py-3 text-sm text-slate-300">
+                            Changes update your visible profile instantly.
+                        </div>
                     </div>
-                    <div className="mt-5 grid gap-4 md:grid-cols-2">
-                        <input className="input-control" placeholder="Full name" value={form.name} onChange={handleFormChange("name")} />
-                        <input className="input-control" placeholder="Headline" value={form.headline} onChange={handleFormChange("headline")} />
-                        <input className="input-control" placeholder="College" value={form.college} onChange={handleFormChange("college")} />
-                        <input className="input-control" placeholder="Profile photo URL" value={form.profilePhoto} onChange={handleFormChange("profilePhoto")} />
-                        <textarea className="input-control md:col-span-2" rows="4" placeholder="Bio" value={form.bio} onChange={handleFormChange("bio")} />
-                        <input className="input-control md:col-span-2" placeholder="Skills separated by commas" value={form.skills} onChange={handleFormChange("skills")} />
+                    <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <input className="input-control" placeholder="Full name" value={form.name} onChange={handleFormChange("name")} />
+                            <input className="input-control" placeholder="Headline" value={form.headline} onChange={handleFormChange("headline")} />
+                            <input className="input-control" placeholder="College" value={form.college} onChange={handleFormChange("college")} />
+                            <input className="input-control" placeholder="Profile photo URL" value={form.profilePhoto} onChange={handleFormChange("profilePhoto")} />
+                            <textarea className="input-control md:col-span-2" rows="4" placeholder="Bio" value={form.bio} onChange={handleFormChange("bio")} />
+                            <input className="input-control md:col-span-2" placeholder="Skills separated by commas" value={form.skills} onChange={handleFormChange("skills")} />
+                        </div>
+                        <div className="card-ghost p-4">
+                            <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Profile preview notes</p>
+                            <p className="mt-3 text-sm text-slate-300">Use a concise headline, a credible college or focus area, and a short bio that explains what you are building or looking for.</p>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                {form.skills.split(",").map((skill) => skill.trim()).filter(Boolean).slice(0, 4).map((skill) => (
+                                    <span key={skill} className="pill-tag">{skill}</span>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                     <div className="mt-5 flex gap-3">
                         <button type="submit" className="btn-primary" disabled={saving}>
@@ -174,7 +188,7 @@ export default function Profile() {
                         <p className="section-title">Profile feed</p>
                         <h2 className="mt-2 text-2xl font-semibold text-white">Recent posts by {isOwnProfile ? "you" : profile.name}</h2>
                     </div>
-                    <div className="rounded-3xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-300">
+                    <div className="card-subtle px-4 py-3 text-sm text-slate-300">
                         {profile.stats?.followers || 0} followers following this profile
                     </div>
                 </div>

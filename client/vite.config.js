@@ -5,6 +5,39 @@ import tailwindcss from "tailwindcss";
 
 export default defineConfig({
     plugins: [react()],
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (!id.includes("node_modules")) {
+                        return undefined;
+                    }
+
+                    if (id.includes("react-router")) {
+                        return "router";
+                    }
+
+                    if (id.includes("recharts")) {
+                        return "charts";
+                    }
+
+                    if (id.includes("framer-motion")) {
+                        return "motion";
+                    }
+
+                    if (id.includes("@heroicons") || id.includes("lucide-react")) {
+                        return "icons";
+                    }
+
+                    if (id.includes("socket.io-client")) {
+                        return "realtime";
+                    }
+
+                    return "vendor";
+                }
+            }
+        }
+    },
     css: {
         postcss: {
             plugins: [tailwindcss(), autoprefixer()]
