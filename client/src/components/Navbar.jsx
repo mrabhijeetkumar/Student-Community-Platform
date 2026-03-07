@@ -1,4 +1,4 @@
-import { BellIcon, MagnifyingGlassIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { BellIcon, MagnifyingGlassIcon, SparklesIcon, BoltIcon } from "@heroicons/react/24/outline";
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -105,13 +105,17 @@ export default function Navbar() {
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                        <div className="card-subtle">
                             <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Notifications</p>
                             <p className="mt-1 text-sm font-semibold text-white">{unreadCount > 0 ? `${unreadCount} unread updates` : "Inbox is clear"}</p>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                        <div className="card-subtle">
                             <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Profile</p>
                             <p className="mt-1 text-sm font-semibold text-white">@{user?.username || "student"}</p>
+                        </div>
+                        <div className="card-subtle flex items-center gap-2">
+                            <BoltIcon className="h-4 w-4 text-accent-300" />
+                            <p className="text-sm font-semibold text-white">Live productivity mode</p>
                         </div>
                     </div>
                 </div>

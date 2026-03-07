@@ -21,9 +21,10 @@ export default function AppShell() {
 
     return (
         <div className="relative isolate min-h-screen overflow-x-clip">
-            <div className="pointer-events-none absolute left-[-8rem] top-[-6rem] h-72 w-72 rounded-full bg-brand-500/20 blur-3xl" />
-            <div className="pointer-events-none absolute right-[-6rem] top-24 h-80 w-80 rounded-full bg-accent-400/10 blur-3xl" />
-            <div className="pointer-events-none absolute bottom-[-8rem] left-1/3 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl" />
+            <div className="pointer-events-none absolute left-[-8rem] top-[-6rem] h-72 w-72 rounded-full bg-brand-500/30 blur-3xl" />
+            <div className="pointer-events-none absolute right-[-6rem] top-24 h-80 w-80 rounded-full bg-accent-400/20 blur-3xl" />
+            <div className="pointer-events-none absolute bottom-[-8rem] left-1/3 h-72 w-72 rounded-full bg-sky-400/20 blur-3xl" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-60 bg-gradient-to-b from-brand-500/10 to-transparent" />
 
             <div className="relative mx-auto grid min-h-screen max-w-[1720px] grid-cols-1 gap-6 px-4 pb-24 pt-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-6 lg:pb-8 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
                 <Sidebar />
@@ -46,7 +47,7 @@ export default function AppShell() {
             </div>
 
             <div className="fixed inset-x-4 bottom-4 z-30 lg:hidden">
-                <div className="card-surface grid grid-cols-7 gap-1 p-2">
+                <div className="card-surface grid grid-cols-7 gap-1 p-2 shadow-2xl">
                     {mobileNav.map((item) => {
                         const Icon = item.icon;
                         const target = item.to === "/profile" ? `/profile/${user?.username}` : item.to;
