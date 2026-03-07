@@ -52,6 +52,12 @@ export default function Register() {
                 <section className="card-surface p-8 lg:p-10">
                     <p className="section-title">Verified onboarding</p>
                     <h1 className="mt-4 text-4xl font-extrabold leading-tight text-white">Create a trusted student profile with Gmail OTP verification.</h1>
+                    <div className="hero-panel hero-grid relative mt-6 overflow-hidden px-5 py-5">
+                        <div className="relative z-10">
+                            <p className="text-[11px] uppercase tracking-[0.22em] text-slate-300">Secure onboarding funnel</p>
+                            <p className="mt-2 text-sm text-slate-200">Enterprise-like trust cues with a high-clarity multi-step registration experience.</p>
+                        </div>
+                    </div>
                     <div className="mt-6 space-y-4 text-sm leading-7 text-slate-300">
                         <p>Only Gmail accounts are accepted. Disposable inbox domains are blocked before registration is completed.</p>
                         <p>Your profile unlocks feed access, follows, threaded comments, direct messages, and dashboards after verification.</p>

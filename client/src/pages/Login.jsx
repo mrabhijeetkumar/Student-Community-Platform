@@ -50,9 +50,15 @@ export default function Login() {
     return (
         <main className="flex min-h-screen items-center justify-center px-4 py-10">
             <div className="grid w-full max-w-6xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                <section className="card-surface overflow-hidden p-8 lg:p-12">
+                <section className="card-surface p-8 lg:p-12">
                     <p className="section-title">Campus OS</p>
                     <h1 className="mt-4 max-w-xl text-4xl font-extrabold leading-tight text-white">A student network designed for opportunities, visibility, and collaboration.</h1>
+                    <div className="hero-panel hero-grid relative mt-6 overflow-hidden px-5 py-5">
+                        <div className="relative z-10">
+                            <p className="text-[11px] uppercase tracking-[0.22em] text-slate-300">Industry-grade product shell</p>
+                            <p className="mt-2 text-sm text-slate-200">Polished gradients, premium glass cards, and conversion-focused authentication flow.</p>
+                        </div>
+                    </div>
                     <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">Join with a verified Gmail account, discover peer projects, follow builders, and manage your student identity in one secure platform.</p>
                     <div className="mt-8 grid gap-4 md:grid-cols-3">
                         <motion.div whileHover={{ y: -4 }} className="card-ghost p-5">
