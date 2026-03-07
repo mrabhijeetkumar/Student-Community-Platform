@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ChartBarSquareIcon, HomeIcon, InboxIcon, BellIcon, UserCircleIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { ChartBarSquareIcon, HomeIcon, InboxIcon, BellIcon, UserCircleIcon, MagnifyingGlassIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
 import Navbar from "../Navbar";
@@ -11,6 +11,7 @@ const mobileNav = [
     { label: "Explore", to: "/explore", icon: MagnifyingGlassIcon },
     { label: "Inbox", to: "/messages", icon: InboxIcon },
     { label: "Alerts", to: "/notifications", icon: BellIcon },
+    { label: "Groups", to: "/communities", icon: UserGroupIcon },
     { label: "Stats", to: "/dashboard", icon: ChartBarSquareIcon },
     { label: "Profile", to: "/profile", icon: UserCircleIcon }
 ];
@@ -45,7 +46,7 @@ export default function AppShell() {
             </div>
 
             <div className="fixed inset-x-4 bottom-4 z-30 lg:hidden">
-                <div className="card-surface grid grid-cols-6 gap-1 p-2">
+                <div className="card-surface grid grid-cols-7 gap-1 p-2">
                     {mobileNav.map((item) => {
                         const Icon = item.icon;
                         const target = item.to === "/profile" ? `/profile/${user?.username}` : item.to;

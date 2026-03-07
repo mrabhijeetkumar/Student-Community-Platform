@@ -2,14 +2,15 @@ import {
     ChatBubbleOvalLeftIcon,
     EllipsisHorizontalIcon,
     HeartIcon,
+    BookmarkIcon,
     PencilSquareIcon,
     ShareIcon,
     TrashIcon
 } from "@heroicons/react/24/outline";
-import { HeartIcon as SolidHeartIcon } from "@heroicons/react/24/solid";
+import { BookmarkIcon as SolidBookmarkIcon, HeartIcon as SolidHeartIcon } from "@heroicons/react/24/solid";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
-import { deletePost, toggleLike, updatePost } from "../services/api";
+import { deletePost, toggleLike, toggleSavePost, updatePost } from "../services/api";
 import { useAuth } from "../context/AuthContext.jsx";
 import CommentBox from "./CommentBox";
 import Notification from "./Notification";
@@ -56,6 +57,8 @@ export default function PostCard({ post, onUpdated, onDeleted }) {
     const hasLiked = user && post.likes?.some((like) => (typeof like === "string" ? like : like._id) === user._id);
     const likesCount = post.likes?.length || 0;
     const commentsCount = post.commentsCount || 0;
+    const savedCount = post.savedBy?.length || 0;
+    const hasSaved = user && post.savedBy?.some((savedUser) => (typeof savedUser === "string" ? savedUser : savedUser._id) === user._id);
     const engagementCount = likesCount + commentsCount;
     const timeLabel = formatRelativeTime(post.createdAt);
 
@@ -67,6 +70,17 @@ export default function PostCard({ post, onUpdated, onDeleted }) {
                 window.setTimeout(() => setLikePulse(false), 280);
             }
             onUpdated(updatedPost);
+        } catch (error) {
+            setFeedback(error.message);
+        }
+    };
+
+
+    const handleSavePost = async () => {
+        try {
+            const updatedPost = await toggleSavePost(post._id, token);
+            onUpdated(updatedPost);
+            setFeedback(hasSaved ? "Post removed from saved items." : "Post added to your saved items.");
         } catch (error) {
             setFeedback(error.message);
         }
@@ -212,6 +226,10 @@ export default function PostCard({ post, onUpdated, onDeleted }) {
                 <button type="button" className="btn-secondary gap-2 px-4 py-2 text-sm" onClick={() => setShowComments((currentState) => !currentState)}>
                     <ChatBubbleOvalLeftIcon className="h-5 w-5" />
                     {formatCompactNumber(commentsCount)} comments
+                </button>
+                <button type="button" className={`btn-secondary gap-2 px-4 py-2 text-sm ${hasSaved ? "border-accent-400/40 bg-accent-400/10 text-accent-100" : ""}`} onClick={handleSavePost}>
+                    {hasSaved ? <SolidBookmarkIcon className="h-5 w-5" /> : <BookmarkIcon className="h-5 w-5" />}
+                    {formatCompactNumber(savedCount)} saved
                 </button>
                 <button type="button" className="btn-secondary gap-2 px-4 py-2 text-sm" onClick={handleShare}>
                     <ShareIcon className="h-5 w-5" />

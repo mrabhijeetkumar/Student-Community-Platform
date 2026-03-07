@@ -102,6 +102,15 @@ export function toggleLike(postId, token) {
     });
 }
 
+export function toggleSavePost(postId, token) {
+    return request(`/posts/${postId}/save`, {
+        method: "PUT",
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+}
+
 export function getUserPosts(userId, token) {
     return request(`/posts/user/${userId}`, {
         headers: {

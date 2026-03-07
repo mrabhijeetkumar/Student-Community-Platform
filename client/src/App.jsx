@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import AppShell from "./components/layout/AppShell";
+import Community from "./pages/Community";
 import Dashboard from "./pages/Dashboard";
 import Explore from "./pages/Explore";
 import Home from "./pages/Home";
@@ -48,7 +49,8 @@ export default function App() {
                 <Route element={<AppShell />}>
                     <Route path="/" element={<Home />} />
                     <Route path="/explore" element={<Explore />} />
-                    <Route path="/community" element={<Navigate to="/" replace />} />
+                    <Route path="/community" element={<Navigate to="/communities" replace />} />
+                    <Route path="/communities" element={<Community />} />
                     <Route path="/profile/:username?" element={<Profile />} />
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/notifications" element={<Notifications />} />

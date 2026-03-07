@@ -1,103 +1,39 @@
-import { useEffect, useState } from "react";
-import Notification from "../components/Notification";
-import PostCard from "../components/PostCard";
-import Sidebar from "../components/Sidebar";
-import { useAuth } from "../context/AuthContext.jsx";
-import { createPost, getPosts } from "../services/api";
+import { UserGroupIcon } from "@heroicons/react/24/outline";
+import PageTransition from "../components/ui/PageTransition";
+
+const communityCards = [
+    { name: "Hackathon Hub", members: "2.3k", topic: "Build and ship projects", color: "from-violet-500/35 to-sky-400/20" },
+    { name: "Placement Prep", members: "4.6k", topic: "Interview prep + referrals", color: "from-sky-500/30 to-indigo-400/20" },
+    { name: "Design Critique", members: "1.1k", topic: "Portfolio and UI reviews", color: "from-fuchsia-500/30 to-cyan-400/20" },
+    { name: "Open Source Circle", members: "1.8k", topic: "Collaboration and contribution", color: "from-emerald-500/30 to-cyan-400/20" }
+];
 
 export default function Community() {
-    const { token, user } = useAuth();
-    const [posts, setPosts] = useState([]);
-    const [postText, setPostText] = useState("");
-    const [message, setMessage] = useState("");
-    const [loading, setLoading] = useState(true);
-
-    const loadPosts = async () => {
-        try {
-            setLoading(true);
-            setMessage("");
-            const data = await getPosts();
-            setPosts(data);
-        } catch (error) {
-            setMessage(error.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        loadPosts();
-    }, []);
-
-    const handleCreatePost = async (event) => {
-        event.preventDefault();
-
-        if (!token) {
-            setMessage("Sign in to create a post.");
-            return;
-        }
-
-        try {
-            const createdPost = await createPost(postText, token);
-            setPosts((currentPosts) => [createdPost, ...currentPosts]);
-            setPostText("");
-            setMessage("");
-        } catch (error) {
-            setMessage(error.message);
-        }
-    };
-
-    const handlePostUpdated = (updatedPost) => {
-        setPosts((currentPosts) =>
-            currentPosts.map((post) => (post._id === updatedPost._id ? updatedPost : post))
-        );
-    };
-
-    const stats = [
-        { label: "Posts", value: posts.length },
-        { label: "Signed in", value: user ? "Yes" : "No" },
-        { label: "API", value: "Connected" }
-    ];
-
     return (
-        <section className="community-layout">
-            <div className="content-column">
-                <div className="section-heading">
-                    <div>
-                        <p className="eyebrow">Community feed</p>
-                        <h1>Latest student posts</h1>
-                    </div>
-                </div>
-
-                <Notification tone="warning" message={message} />
-
-                <form className="composer-card" onSubmit={handleCreatePost}>
-                    <textarea
-                        value={postText}
-                        onChange={(event) => setPostText(event.target.value)}
-                        placeholder={
-                            user ? "Share an update with your community" : "Sign in to publish a post"
-                        }
-                        rows="4"
-                    />
-                    <button type="submit" className="primary-button">
-                        Publish post
-                    </button>
-                </form>
-
-                <div className="feed-column">
-                    {loading ? <p className="muted-text">Loading posts...</p> : null}
-                    {!loading && posts.length === 0 ? (
-                        <p className="muted-text">No posts yet. Start the conversation.</p>
-                    ) : null}
-
-                    {posts.map((post) => (
-                        <PostCard key={post._id} post={post} onPostUpdated={handlePostUpdated} />
-                    ))}
-                </div>
+        <PageTransition className="space-y-6">
+            <div className="card-surface p-6">
+                <p className="section-title">Communities</p>
+                <h2 className="mt-2 text-3xl font-bold text-white">Join focused circles and collaborate faster.</h2>
+                <p className="mt-2 text-sm text-slate-400">Discover active student clusters for hackathons, placements, research, and peer learning.</p>
             </div>
 
-            <Sidebar stats={stats} />
-        </section>
+            <div className="grid gap-4 md:grid-cols-2">
+                {communityCards.map((community) => (
+                    <article key={community.name} className="card-surface overflow-hidden p-5">
+                        <div className={`rounded-3xl border border-white/10 bg-gradient-to-br ${community.color} p-5`}>
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="rounded-2xl border border-white/15 bg-white/10 p-3 text-white">
+                                    <UserGroupIcon className="h-6 w-6" />
+                                </div>
+                                <span className="pill-tag">{community.members} members</span>
+                            </div>
+                            <h3 className="mt-4 text-xl font-semibold text-white">{community.name}</h3>
+                            <p className="mt-2 text-sm text-slate-200">{community.topic}</p>
+                            <button type="button" className="btn-primary mt-5 w-full justify-center">Join community</button>
+                        </div>
+                    </article>
+                ))}
+            </div>
+        </PageTransition>
     );
 }

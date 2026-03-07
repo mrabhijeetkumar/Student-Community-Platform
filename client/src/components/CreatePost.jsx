@@ -1,8 +1,10 @@
-import { PaperAirplaneIcon, PhotoIcon, SparklesIcon, TagIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { FaceSmileIcon, PaperAirplaneIcon, PhotoIcon, SparklesIcon, TagIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
 import { useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import Notification from "./Notification";
+
+const quickEmojis = ["🔥", "🚀", "🎯", "🤝", "💡"];
 
 const starterPrompts = [
     "Looking for feedback on a project idea",
@@ -123,6 +125,17 @@ export default function CreatePost({ onSubmit, isSubmitting = false }) {
                             onClick={() => setContent((currentContent) => currentContent ? `${currentContent}\n${prompt}` : prompt)}
                         >
                             {prompt}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300">
+                        <FaceSmileIcon className="h-4 w-4" /> Add mood
+                    </span>
+                    {quickEmojis.map((emoji) => (
+                        <button key={emoji} type="button" className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-sm transition hover:border-accent-400/40 hover:bg-white/[0.08]" onClick={() => setContent((currentContent) => `${currentContent}${emoji}`)}>
+                            {emoji}
                         </button>
                     ))}
                 </div>
