@@ -1,12 +1,13 @@
 import {
-    BoltIcon,
+    ArrowRightStartOnRectangleIcon,
+    BellIcon,
     ChartBarSquareIcon,
     HomeIcon,
     InboxIcon,
-    BellIcon,
     MagnifyingGlassIcon,
     UserCircleIcon,
-    ArrowRightStartOnRectangleIcon
+    UserGroupIcon,
+    SparklesIcon
 } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
 import { Link, NavLink } from "react-router-dom";
@@ -17,6 +18,7 @@ const navItems = [
     { label: "Explore", to: "/explore", icon: MagnifyingGlassIcon },
     { label: "Notifications", to: "/notifications", icon: BellIcon },
     { label: "Messages", to: "/messages", icon: InboxIcon },
+    { label: "Communities", to: "/communities", icon: UserGroupIcon },
     { label: "Profile", to: "/profile", icon: UserCircleIcon },
     { label: "Dashboard", to: "/dashboard", icon: ChartBarSquareIcon }
 ];
@@ -37,9 +39,9 @@ export default function Sidebar() {
                                 <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Focus</p>
                                 <p className="mt-1 text-sm font-semibold text-white">Live feed</p>
                             </Link>
-                            <Link to="/explore" className="rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-3 transition hover:bg-white/[0.08]">
-                                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Discover</p>
-                                <p className="mt-1 text-sm font-semibold text-white">People</p>
+                            <Link to="/communities" className="rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-3 transition hover:bg-white/[0.08]">
+                                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Connect</p>
+                                <p className="mt-1 text-sm font-semibold text-white">Groups</p>
                             </Link>
                         </div>
                     </div>
@@ -50,13 +52,17 @@ export default function Sidebar() {
                             const target = item.to === "/profile" && user ? `/profile/${user.username}` : item.to;
 
                             return (
-                                <NavLink
-                                    key={item.label}
-                                    to={target}
-                                    className={({ isActive }) => `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${isActive ? "bg-brand-500 text-white shadow-glow" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}
-                                >
-                                    <Icon className="h-5 w-5" />
-                                    {item.label}
+                                <NavLink key={item.label} to={target}>
+                                    {({ isActive }) => (
+                                        <motion.div
+                                            whileHover={{ x: 4 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${isActive ? "bg-brand-500 text-white shadow-glow" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}
+                                        >
+                                            <Icon className="h-5 w-5" />
+                                            {item.label}
+                                        </motion.div>
+                                    )}
                                 </NavLink>
                             );
                         })}
@@ -65,7 +71,7 @@ export default function Sidebar() {
                     <div className="card-ghost p-4">
                         <div className="flex items-center gap-3">
                             <div className="rounded-2xl bg-brand-500/10 p-3 text-brand-100">
-                                <BoltIcon className="h-5 w-5" />
+                                <SparklesIcon className="h-5 w-5" />
                             </div>
                             <div>
                                 <p className="text-sm font-semibold text-white">Daily momentum</p>

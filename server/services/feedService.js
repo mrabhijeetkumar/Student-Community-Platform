@@ -15,6 +15,7 @@ export const buildPostResponse = (post) => ({
     images: post.images,
     tags: post.tags,
     likes: post.likes,
+    savedBy: post.savedBy,
     commentsCount: post.commentsCount,
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,

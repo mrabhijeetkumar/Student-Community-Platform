@@ -2,11 +2,11 @@ import { FireIcon, RectangleGroupIcon, UserGroupIcon } from "@heroicons/react/24
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { getPosts, getSuggestedUsers } from "../../services/api";
+import { getNotifications, getPosts, getSuggestedUsers } from "../../services/api";
 import UserCard from "../UserCard";
 import LoadingCard from "../ui/LoadingCard";
 
-const communities = [
+const recommendedCommunities = [
     { name: "Hackathon Hub", members: "2.3k students", tag: "Build" },
     { name: "Design Critique", members: "1.1k students", tag: "Design" },
     { name: "Placement Prep", members: "4.6k students", tag: "Career" }
@@ -16,6 +16,7 @@ export default function RightRail() {
     const { token } = useAuth();
     const [suggestions, setSuggestions] = useState([]);
     const [trendingPosts, setTrendingPosts] = useState([]);
+    const [recentActivity, setRecentActivity] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const trendingTopics = useMemo(() => {
@@ -37,9 +38,10 @@ export default function RightRail() {
 
         const loadRail = async () => {
             try {
-                const [suggestedUsers, trending] = await Promise.all([
+                const [suggestedUsers, trending, notifications] = await Promise.all([
                     getSuggestedUsers(token),
-                    getPosts("trending", token)
+                    getPosts("trending", token),
+                    getNotifications(token)
                 ]);
 
                 if (!isMounted) {
@@ -48,10 +50,12 @@ export default function RightRail() {
 
                 setSuggestions(suggestedUsers);
                 setTrendingPosts(trending.slice(0, 3));
+                setRecentActivity(notifications.slice(0, 3));
             } catch (error) {
                 if (isMounted) {
                     setSuggestions([]);
                     setTrendingPosts([]);
+                    setRecentActivity([]);
                 }
             } finally {
                 if (isMounted) {
@@ -125,12 +129,12 @@ export default function RightRail() {
                         <RectangleGroupIcon className="h-5 w-5" />
                     </div>
                     <div>
-                        <p className="text-sm font-semibold text-white">Communities</p>
+                        <p className="text-sm font-semibold text-white">Recommended communities</p>
                         <p className="text-sm text-slate-400">Join interest clusters and discussion circles</p>
                     </div>
                 </div>
                 <div className="mt-4 space-y-3">
-                    {communities.map((community) => (
+                    {recommendedCommunities.map((community) => (
                         <div key={community.name} className="rounded-3xl border border-white/10 bg-white/[0.04] px-4 py-4">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
@@ -153,6 +157,29 @@ export default function RightRail() {
                             </div>
                         </div>
                     ) : null}
+                </div>
+            </div>
+
+
+            <div className="card-surface p-5">
+                <div className="flex items-center gap-3">
+                    <div className="rounded-2xl bg-brand-500/10 p-3 text-brand-200">
+                        <FireIcon className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold text-white">Recent activity</p>
+                        <p className="text-sm text-slate-400">Latest reactions to your network</p>
+                    </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                    {loading ? <LoadingCard lines={3} /> : null}
+                    {!loading && recentActivity.length === 0 ? <p className="text-sm text-slate-400">No recent activity yet.</p> : null}
+                    {!loading && recentActivity.map((item) => (
+                        <div key={item._id} className="rounded-3xl border border-white/10 bg-white/[0.04] px-4 py-4">
+                            <p className="text-sm font-semibold text-white">{item.title}</p>
+                            <p className="mt-1 text-xs text-slate-400">{item.message}</p>
+                        </div>
+                    ))}
                 </div>
             </div>
         </aside>

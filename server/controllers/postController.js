@@ -143,3 +143,28 @@ export const toggleLike = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const toggleSave = async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+
+        if (!post) {
+            return res.status(404).json({ message: "Post not found" });
+        }
+
+        const index = post.savedBy.findIndex((savedUserId) => savedUserId.toString() === req.user._id.toString());
+
+        if (index === -1) {
+            post.savedBy.push(req.user._id);
+        } else {
+            post.savedBy.splice(index, 1);
+        }
+
+        await post.save();
+        await post.populate("author", "name username profilePhoto headline college");
+
+        res.json(buildPostResponse(post));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
