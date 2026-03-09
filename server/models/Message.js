@@ -24,6 +24,10 @@ const messageSchema = new mongoose.Schema(
         readAt: {
             type: Date,
             default: null
+        },
+        deliveredAt: {
+            type: Date,
+            default: null
         }
     },
     { timestamps: true }
@@ -31,12 +35,10 @@ const messageSchema = new mongoose.Schema(
 
 messageSchema.index({ sender: 1, recipient: 1, createdAt: -1 });
 
-messageSchema.pre("validate", function setConversationKey(next) {
+messageSchema.pre("validate", function setConversationKey() {
     if (this.sender && this.recipient) {
         this.conversationKey = [this.sender.toString(), this.recipient.toString()].sort().join(":");
     }
-
-    next();
 });
 
 export default mongoose.model("Message", messageSchema);

@@ -1,262 +1,611 @@
-import {
-    ChatBubbleOvalLeftIcon,
-    EllipsisHorizontalIcon,
-    HeartIcon,
-    BookmarkIcon,
-    PencilSquareIcon,
-    ShareIcon,
-    TrashIcon
-} from "@heroicons/react/24/outline";
-import { BookmarkIcon as SolidBookmarkIcon, HeartIcon as SolidHeartIcon } from "@heroicons/react/24/solid";
-import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { deletePost, toggleLike, toggleSavePost, updatePost } from "../services/api";
-import { useAuth } from "../context/AuthContext.jsx";
-import CommentBox from "./CommentBox";
-import Notification from "./Notification";
+import { MessageCircle, Bookmark, Share2, MoreHorizontal, Send, Pencil, Trash2, X, Check, Heart } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { useAuth } from "../context/useAuth.js";
+import { votePost, toggleSavePost, getComments, createComment, updatePost, deletePost } from "../services/api.js";
 
-function formatRelativeTime(dateValue) {
-    const date = new Date(dateValue);
-    const seconds = Math.round((date.getTime() - Date.now()) / 1000);
-    const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-    const ranges = [
-        [60, "second"],
-        [3600, "minute"],
-        [86400, "hour"],
-        [604800, "day"],
-        [2629800, "week"],
-        [31557600, "month"],
-        [Infinity, "year"]
-    ];
-
-    for (let index = 0; index < ranges.length; index += 1) {
-        const [limit, unit] = ranges[index];
-        if (Math.abs(seconds) < limit) {
-            const divisor = index === 0 ? 1 : ranges[index - 1][0];
-            return formatter.format(Math.round(seconds / divisor), unit);
-        }
-    }
-
-    return date.toLocaleDateString();
+function timeAgo(dateString) {
+    if (!dateString) return "";
+    const diff = Date.now() - new Date(dateString).getTime();
+    const s = Math.floor(diff / 1000);
+    if (s < 60) return "just now";
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 7) return `${d}d ago`;
+    return new Date(dateString).toLocaleDateString();
 }
 
-function formatCompactNumber(value) {
-    return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value || 0);
-}
+export default function PostCard({ post, onUpdate, onDelete }) {
+    const { user, token } = useAuth();
+    const uid = user?._id;
+    const isOwn = uid && post?.author?._id && String(post.author._id) === String(uid);
 
-export default function PostCard({ post, onUpdated, onDeleted }) {
-    const { token, user } = useAuth();
-    const [showComments, setShowComments] = useState(false);
-    const [editing, setEditing] = useState(false);
+    const menuRef = useRef(null);
+
+    // Like / save state
+    const [localVote, setLocalVote] = useState(null);
+    const [localSaved, setLocalSaved] = useState(false);
+    const [localVotes, setLocalVotes] = useState(0);
+
+    // Comments state
+    const [commentsOpen, setCommentsOpen] = useState(false);
+    const [comments, setComments] = useState([]);
+    const [commentsLoaded, setCommentsLoaded] = useState(false);
+    const [commentText, setCommentText] = useState("");
+    const [commentSubmitting, setCommentSubmitting] = useState(false);
+    const [localCommentsCount, setLocalCommentsCount] = useState(0);
+
+    // Three-dot menu
     const [menuOpen, setMenuOpen] = useState(false);
-    const [draftContent, setDraftContent] = useState(post.content);
-    const [feedback, setFeedback] = useState("");
-    const [likePulse, setLikePulse] = useState(false);
 
-    const isOwner = user && (user._id === post.author?._id || user.role === "admin");
-    const hasLiked = user && post.likes?.some((like) => (typeof like === "string" ? like : like._id) === user._id);
-    const likesCount = post.likes?.length || 0;
-    const commentsCount = post.commentsCount || 0;
-    const savedCount = post.savedBy?.length || 0;
-    const hasSaved = user && post.savedBy?.some((savedUser) => (typeof savedUser === "string" ? savedUser : savedUser._id) === user._id);
-    const engagementCount = likesCount + commentsCount;
-    const timeLabel = formatRelativeTime(post.createdAt);
+    // Edit state
+    const [editing, setEditing] = useState(false);
+    const [editText, setEditText] = useState("");
+    const [editSubmitting, setEditSubmitting] = useState(false);
 
-    const handleLike = async () => {
+    // Share toast
+    const [shareToast, setShareToast] = useState(false);
+
+    // Delete loading
+    const [deleting, setDeleting] = useState(false);
+
+    // Image lightbox
+    const [lightboxIndex, setLightboxIndex] = useState(null);
+
+    useEffect(() => {
+        const upvotes = post?.upvotes ?? post?.likes ?? [];
+        const downvotes = post?.downvotes ?? [];
+        const vote = uid
+            ? (upvotes.some((id) => String(id) === String(uid)) ? "up" : downvotes.some((id) => String(id) === String(uid)) ? "down" : null)
+            : null;
+        const saved = uid ? (post?.savedBy ?? []).some((id) => String(id) === String(uid)) : false;
+        const votes = typeof post?.voteScore === "number" ? post.voteScore : upvotes.length - downvotes.length;
+        setLocalVote(vote);
+        setLocalSaved(saved);
+        setLocalVotes(votes);
+        setLocalCommentsCount(post?.commentsCount ?? 0);
+    }, [post?._id, uid, post?.upvotes?.length, post?.likes?.length, post?.downvotes?.length, post?.savedBy?.length, post?.voteScore]); // eslint-disable-line
+
+    // Close menu on outside click
+    useEffect(() => {
+        if (!menuOpen) return;
+        const handler = (e) => {
+            if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [menuOpen]);
+
+    const handleVote = async (voteType) => {
+        const previousVote = localVote;
+        const nextVote = previousVote === voteType ? null : voteType;
+        const deltaMap = {
+            "null-up": 1,
+            "null-down": -1,
+            "up-null": -1,
+            "down-null": 1,
+            "up-down": -2,
+            "down-up": 2,
+        };
+        const delta = deltaMap[`${previousVote ?? "null"}-${nextVote ?? "null"}`] ?? 0;
+
+        setLocalVote(nextVote);
+        setLocalVotes((score) => score + delta);
+
+        if (!post?._id || !token) return;
+
         try {
-            const updatedPost = await toggleLike(post._id, token);
-            if (!hasLiked) {
-                setLikePulse(true);
-                window.setTimeout(() => setLikePulse(false), 280);
-            }
-            onUpdated(updatedPost);
-        } catch (error) {
-            setFeedback(error.message);
-        }
-    };
-
-
-    const handleSavePost = async () => {
-        try {
-            const updatedPost = await toggleSavePost(post._id, token);
-            onUpdated(updatedPost);
-            setFeedback(hasSaved ? "Post removed from saved items." : "Post added to your saved items.");
-        } catch (error) {
-            setFeedback(error.message);
+            const updated = await votePost(post._id, voteType, token);
+            onUpdate?.(updated);
+        } catch {
+            setLocalVote(previousVote);
+            setLocalVotes((score) => score - delta);
         }
     };
 
     const handleSave = async () => {
-        if (!draftContent.trim()) {
-            setFeedback("Post content cannot be empty.");
-            return;
-        }
-
+        const wasSaved = localSaved;
+        setLocalSaved(!wasSaved);
+        if (!post?._id || !token) return;
         try {
-            const updatedPost = await updatePost(post._id, {
-                content: draftContent.trim(),
-                images: post.images,
-                tags: post.tags,
-                communityId: post.community?._id || ""
-            }, token);
-            onUpdated(updatedPost);
+            const updated = await toggleSavePost(post._id, token);
+            onUpdate?.(updated);
+        } catch {
+            setLocalSaved(wasSaved);
+        }
+    };
+
+    const handleToggleComments = async () => {
+        setCommentsOpen((prev) => !prev);
+        if (!commentsLoaded && post?._id && token) {
+            setCommentsLoaded(true);
+            try {
+                const data = await getComments(post._id, token);
+                setComments(Array.isArray(data) ? data : []);
+            } catch {
+                setComments([]);
+            }
+        }
+    };
+
+    const handleSubmitComment = async () => {
+        if (!commentText.trim() || !post?._id || !token || commentSubmitting) return;
+        const text = commentText.trim();
+        setCommentSubmitting(true);
+        setCommentText("");
+        try {
+            const newComment = await createComment(post._id, { text }, token);
+            setComments((prev) => [...prev, newComment]);
+            setLocalCommentsCount((c) => c + 1);
+        } catch {
+            setCommentText(text);
+        } finally {
+            setCommentSubmitting(false);
+        }
+    };
+
+    const handleEditStart = () => {
+        setEditText(post?.content || "");
+        setEditing(true);
+        setMenuOpen(false);
+    };
+
+    const handleEditSave = async () => {
+        if (!editText.trim() || editSubmitting || !post?._id || !token) return;
+        setEditSubmitting(true);
+        try {
+            const updated = await updatePost(post._id, { content: editText.trim() }, token);
+            onUpdate?.(updated);
             setEditing(false);
-            setFeedback("");
-        } catch (error) {
-            setFeedback(error.message);
+        } catch {
+            // keep editing open on error
+        } finally {
+            setEditSubmitting(false);
         }
     };
 
     const handleDelete = async () => {
+        if (deleting || !post?._id || !token) return;
+        setDeleting(true);
+        setMenuOpen(false);
         try {
             await deletePost(post._id, token);
-            onDeleted(post._id);
-        } catch (error) {
-            setFeedback(error.message);
+            onDelete?.(post._id);
+        } catch {
+            setDeleting(false);
         }
     };
 
     const handleShare = async () => {
-        const sharePayload = {
-            title: `${post.author?.name} on Campus OS`,
-            text: post.content
-        };
-
+        const shareUrl = `${window.location.origin}/dashboard`;
+        const shareText = `"${post?.content?.slice(0, 80) || "Check this post"}" — by ${post?.author?.name || "Student"} on StudentHub`;
         try {
             if (navigator.share) {
-                await navigator.share(sharePayload);
-                return;
+                await navigator.share({ title: "StudentHub Post", text: shareText, url: shareUrl });
+            } else {
+                await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+                setShareToast(true);
+                setTimeout(() => setShareToast(false), 2500);
             }
-
-            await navigator.clipboard.writeText(`${post.content}\n\n${window.location.origin}/profile/${post.author?.username}`);
-            setFeedback("Post details copied for sharing.");
-        } catch {
-            setFeedback("Share action could not be completed.");
-        }
+        } catch { /* user cancelled */ }
     };
 
+    const authorName = post?.author?.name || "Student";
+    const authorAvatar =
+        post?.author?.profilePhoto ||
+        post?.author?.avatar ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=6366f1&color=fff&bold=true&size=64`;
+    const communityName =
+        post?.community?.name || (typeof post?.community === "string" ? post.community : null);
+    const displayTime = post?.createdAt
+        ? timeAgo(post.createdAt)
+        : post?.timeAgo
+            ? `${post.timeAgo} ago`
+            : "";
+
     return (
-        <motion.article
-            layout
-            whileHover={{ y: -4 }}
-            transition={{ duration: 0.18 }}
-            className="card-surface overflow-hidden p-5"
+        <article
+            className="card"
+            style={{ opacity: deleting ? 0.4 : 1, transition: "opacity 0.3s" }}
         >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-white/[0.05] via-white/[0.02] to-transparent" />
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 to-accent-400 text-sm font-bold text-white">
-                        {post.author?.profilePhoto ? <img src={post.author.profilePhoto} alt={post.author.name} className="h-full w-full object-cover" /> : post.author?.name?.charAt(0)?.toUpperCase()}
+            <div className="relative">
+                {/* Author row */}
+                <div className="flex items-center gap-3 mb-3">
+                    <img
+                        src={authorAvatar}
+                        className="w-10 h-10 rounded-full object-cover ring-2 shrink-0"
+                        style={{ ringColor: "var(--border)" }}
+                    />
+                    <div className="min-w-0 flex-1">
+                        <span className="text-[13.5px] font-semibold block leading-tight truncate text-white">{authorName}</span>
+                        <span className="text-[11.5px]" style={{ color: "var(--text-muted)" }}>{displayTime}</span>
                     </div>
-                    <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <p className="display-title font-semibold text-white">{post.author?.name}</p>
-                            {isOwner ? <span className="rounded-full border border-brand-400/20 bg-brand-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-100">You</span> : null}
-                            {engagementCount >= 8 ? <span className="rounded-full border border-accent-400/20 bg-accent-400/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-accent-200">Hot</span> : null}
-                        </div>
-                        <p className="text-sm text-slate-400">@{post.author?.username} • {post.author?.headline || "Student creator"}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500" title={new Date(post.createdAt).toLocaleString()}>
-                            <span className="uppercase tracking-[0.22em] text-accent-300">{timeLabel}</span>
-                            <span className="h-1 w-1 rounded-full bg-slate-600" />
-                            <span>{formatCompactNumber(engagementCount)} interactions</span>
-                            {post.community ? (
-                                <>
-                                    <span className="h-1 w-1 rounded-full bg-slate-600" />
-                                    <Link to={`/?community=${post.community.slug}`} className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-300 transition hover:border-accent-400/30 hover:text-white">
-                                        {post.community.name}
-                                    </Link>
-                                </>
-                            ) : null}
-                        </div>
-                    </div>
-                </div>
-                {isOwner ? (
-                    <div className="relative">
-                        <button type="button" className="icon-button h-10 w-10" onClick={() => setMenuOpen((currentState) => !currentState)}>
-                            <EllipsisHorizontalIcon className="h-5 w-5" />
+                    {communityName && <span className="tag">{communityName}</span>}
+
+                    {/* Three-dot menu */}
+                    <div className="relative shrink-0" ref={menuRef}>
+                        <button
+                            onClick={() => setMenuOpen((v) => !v)}
+                            className="p-1.5 rounded-lg transition-all duration-200"
+                            style={{ color: menuOpen ? "var(--text-sub)" : "var(--text-muted)", background: menuOpen ? "rgba(255,255,255,0.06)" : "transparent" }}
+                        >
+                            <MoreHorizontal size={16} />
                         </button>
+
                         <AnimatePresence>
-                            {menuOpen ? (
+                            {menuOpen && (
                                 <motion.div
-                                    initial={{ opacity: 0, y: 6 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 6 }}
-                                    className="absolute right-0 top-12 z-10 w-44 rounded-3xl border border-white/10 bg-slate-950/95 p-2 shadow-soft"
+                                    initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.9, y: -4 }}
+                                    transition={{ duration: 0.12 }}
+                                    className="absolute right-0 top-8 z-30 w-44 rounded-xl overflow-hidden"
+                                    style={{ background: "var(--surface-elevated)", border: "1px solid var(--border-hover)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}
                                 >
-                                    <button type="button" className="flex w-full items-center gap-2 rounded-2xl px-3 py-3 text-sm text-slate-200 transition hover:bg-white/[0.06]" onClick={() => { setEditing((currentState) => !currentState); setMenuOpen(false); }}>
-                                        <PencilSquareIcon className="h-5 w-5" />
-                                        Edit post
-                                    </button>
-                                    <button type="button" className="flex w-full items-center gap-2 rounded-2xl px-3 py-3 text-sm text-rose-200 transition hover:bg-rose-500/10" onClick={handleDelete}>
-                                        <TrashIcon className="h-5 w-5" />
-                                        Delete post
-                                    </button>
+                                    {isOwn ? (
+                                        <>
+                                            <button
+                                                onClick={handleEditStart}
+                                                className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-medium text-left transition-colors hover:bg-white/5"
+                                                style={{ color: "var(--text-sub)" }}
+                                            >
+                                                <Pencil size={13} style={{ color: "#6366f1" }} /> Edit Post
+                                            </button>
+                                            <div style={{ height: "1px", background: "rgba(255,255,255,0.06)" }} />
+                                            <button
+                                                onClick={handleDelete}
+                                                className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-medium text-left transition-colors hover:bg-red-500/10"
+                                                style={{ color: "#f87171" }}
+                                            >
+                                                <Trash2 size={13} /> Delete Post
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            onClick={() => setMenuOpen(false)}
+                                            className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-medium text-left transition-colors hover:bg-white/5"
+                                            style={{ color: "var(--text-muted)" }}
+                                        >
+                                            Report Post
+                                        </button>
+                                    )}
                                 </motion.div>
-                            ) : null}
+                            )}
                         </AnimatePresence>
                     </div>
-                ) : null}
-            </div>
-
-            <Notification tone="warning" message={feedback} />
-
-            <div className="mt-4 space-y-4">
-                <div className="flex flex-wrap gap-2">
-                    <span className="floating-metric px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">Post</span>
-                    {post.community ? <span className="floating-metric px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-200">{post.community.category || "Community"}</span> : null}
                 </div>
+
+                {/* Body / Edit */}
                 {editing ? (
-                    <div className="space-y-3">
-                        <textarea rows="5" className="input-control" value={draftContent} onChange={(event) => setDraftContent(event.target.value)} />
-                        <div className="flex gap-3">
-                            <button type="button" className="btn-primary px-4 py-2 text-sm" onClick={handleSave}>Save changes</button>
-                            <button type="button" className="btn-secondary px-4 py-2 text-sm" onClick={() => { setEditing(false); setDraftContent(post.content); }}>Cancel</button>
+                    <div className="mb-3">
+                        <textarea
+                            className="w-full rounded-xl px-3 py-2.5 text-[13.5px] leading-relaxed outline-none resize-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(99,102,241,0.5)", color: "var(--text-main)", minHeight: "80px" }}
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            autoFocus
+                        />
+                        <div className="flex items-center gap-2 mt-2">
+                            <button
+                                onClick={handleEditSave}
+                                disabled={editSubmitting || !editText.trim()}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all"
+                                style={editSubmitting ? { background: "rgba(99,102,241,0.15)", color: "#818cf8", cursor: "not-allowed" } : { background: "var(--primary)", color: "white" }}
+                            >
+                                <Check size={12} /> {editSubmitting ? "Saving…" : "Save"}
+                            </button>
+                            <button
+                                onClick={() => setEditing(false)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all"
+                                style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-muted)" }}
+                            >
+                                <X size={12} /> Cancel
+                            </button>
                         </div>
                     </div>
                 ) : (
-                    <p className="whitespace-pre-wrap text-[15px] leading-8 text-slate-200">{post.content}</p>
+                    <p className="text-[14px] leading-relaxed mb-3" style={{ color: "var(--text-sub)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                        {post?.content || ""}
+                        {post?.editedAt && <span className="text-[11px] ml-2" style={{ color: "var(--text-muted)" }}>(edited)</span>}
+                    </p>
                 )}
 
-                {post.images?.length ? (
-                    <div className="grid gap-3 md:grid-cols-2">
-                        {post.images.map((image) => (
-                            <motion.img whileHover={{ scale: 1.01 }} key={image} src={image} alt="Post attachment" className="h-64 w-full rounded-[1.75rem] object-cover" />
+                {/* Images grid */}
+                {post?.images?.length > 0 && (() => {
+                    const imgs = post.images.filter(Boolean);
+                    const count = imgs.length;
+                    if (count === 0) return null;
+                    return (
+                        <div className="mb-3 rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                            {count === 1 && (
+                                <motion.img
+                                    src={imgs[0]} alt="post image"
+                                    className="w-full object-cover cursor-zoom-in"
+                                    style={{ maxHeight: 420, display: "block" }}
+                                    whileHover={{ scale: 1.01 }}
+                                    transition={{ duration: 0.2 }}
+                                    onClick={() => setLightboxIndex(0)}
+                                />
+                            )}
+                            {count === 2 && (
+                                <div className="grid grid-cols-2 gap-[2px]">
+                                    {imgs.map((src, i) => (
+                                        <motion.img key={i} src={src} alt=""
+                                            className="w-full object-cover cursor-zoom-in"
+                                            style={{ height: 220, display: "block" }}
+                                            whileHover={{ scale: 1.02 }}
+                                            transition={{ duration: 0.2 }}
+                                            onClick={() => setLightboxIndex(i)}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                            {count === 3 && (
+                                <div className="grid gap-[2px]" style={{ gridTemplateColumns: "1fr 1fr", gridTemplateRows: "auto auto" }}>
+                                    <motion.img src={imgs[0]} alt=""
+                                        className="object-cover cursor-zoom-in col-span-2"
+                                        style={{ width: "100%", height: 220, display: "block" }}
+                                        whileHover={{ scale: 1.01 }} transition={{ duration: 0.2 }}
+                                        onClick={() => setLightboxIndex(0)}
+                                    />
+                                    {imgs.slice(1).map((src, i) => (
+                                        <motion.img key={i} src={src} alt=""
+                                            className="w-full object-cover cursor-zoom-in"
+                                            style={{ height: 160, display: "block" }}
+                                            whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}
+                                            onClick={() => setLightboxIndex(i + 1)}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                            {count === 4 && (
+                                <div className="grid grid-cols-2 gap-[2px]">
+                                    {imgs.map((src, i) => (
+                                        <motion.img key={i} src={src} alt=""
+                                            className="w-full object-cover cursor-zoom-in"
+                                            style={{ height: 180, display: "block" }}
+                                            whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}
+                                            onClick={() => setLightboxIndex(i)}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+
+                {/* Lightbox */}
+                <AnimatePresence>
+                    {lightboxIndex !== null && (() => {
+                        const imgs = (post?.images || []).filter(Boolean);
+                        const total = imgs.length;
+                        return (
+                            <motion.div
+                                key="lightbox"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.18 }}
+                                className="fixed inset-0 z-[200] flex items-center justify-center"
+                                style={{ background: "rgba(0,0,0,0.90)" }}
+                                onClick={() => setLightboxIndex(null)}
+                            >
+                                {/* Close */}
+                                <button
+                                    className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full flex items-center justify-center"
+                                    style={{ background: "rgba(255,255,255,0.12)", color: "white" }}
+                                    onClick={() => setLightboxIndex(null)}
+                                >
+                                    <X size={16} />
+                                </button>
+
+                                {/* Prev */}
+                                {total > 1 && (
+                                    <button
+                                        className="absolute left-4 z-10 w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-white/20"
+                                        style={{ background: "rgba(255,255,255,0.10)", color: "white" }}
+                                        onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + total) % total); }}
+                                    >
+                                        &#8592;
+                                    </button>
+                                )}
+
+                                {/* Image */}
+                                <motion.img
+                                    key={lightboxIndex}
+                                    src={imgs[lightboxIndex]}
+                                    initial={{ scale: 0.88, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                    className="rounded-2xl shadow-2xl"
+                                    style={{ maxWidth: "90vw", maxHeight: "86vh", objectFit: "contain" }}
+                                    onClick={(e) => e.stopPropagation()}
+                                />
+
+                                {/* Next */}
+                                {total > 1 && (
+                                    <button
+                                        className="absolute right-4 z-10 w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-white/20"
+                                        style={{ background: "rgba(255,255,255,0.10)", color: "white" }}
+                                        onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % total); }}
+                                    >
+                                        &#8594;
+                                    </button>
+                                )}
+
+                                {/* Counter */}
+                                {total > 1 && (
+                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                                        {imgs.map((_, i) => (
+                                            <div key={i} className="rounded-full transition-all"
+                                                style={{
+                                                    width: i === lightboxIndex ? 20 : 6, height: 6,
+                                                    background: i === lightboxIndex ? "white" : "rgba(255,255,255,0.35)"
+                                                }} />
+                                        ))}
+                                    </div>
+                                )}
+                            </motion.div>
+                        );
+                    })()}
+                </AnimatePresence>
+
+                {/* Tags */}
+                {post?.tags?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                        {post.tags.map((t) => (
+                            <span key={t} className="tag">#{t}</span>
                         ))}
                     </div>
-                ) : null}
+                )}
 
-                {post.tags?.length ? (
-                    <div className="flex flex-wrap gap-2">
-                        {post.tags.map((tag) => (
-                            <span key={tag} className="pill-tag">#{tag}</span>
-                        ))}
+                {/* Action bar — Instagram-style */}
+                <div className="flex items-center gap-1 pt-3 mt-1" style={{ borderTop: "1px solid var(--border)" }}>
+
+                    {/* Like (Heart) */}
+                    <button
+                        onClick={() => handleVote("up")}
+                        className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all hover:bg-red-500/8"
+                        style={{ color: localVote === "up" ? "#ef4444" : "var(--text-muted)" }}
+                        aria-label="Like post"
+                    >
+                        <Heart
+                            size={18}
+                            fill={localVote === "up" ? "#ef4444" : "none"}
+                            strokeWidth={localVote === "up" ? 0 : 1.8}
+                            className="transition-transform active:scale-90"
+                        />
+                        {localVotes !== 0 && (
+                            <span className="text-[12px] font-semibold tabular-nums">{localVotes > 0 ? localVotes : localVotes}</span>
+                        )}
+                    </button>
+
+                    {/* Comment */}
+                    <button
+                        onClick={handleToggleComments}
+                        className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all hover:bg-white/5"
+                        style={{ color: commentsOpen ? "var(--primary-light)" : "var(--text-muted)" }}
+                    >
+                        <MessageCircle size={18} strokeWidth={1.8} />
+                        {localCommentsCount > 0 && (
+                            <span className="text-[12px] font-semibold tabular-nums">{localCommentsCount}</span>
+                        )}
+                    </button>
+
+                    {/* Spacer */}
+                    <div className="flex-1" />
+
+                    {/* Share */}
+                    <div className="relative">
+                        <button
+                            onClick={handleShare}
+                            className="p-2 rounded-lg transition-all hover:bg-white/5"
+                            style={{ color: "var(--text-muted)" }}
+                        >
+                            <Share2 size={17} strokeWidth={1.8} />
+                        </button>
+                        <AnimatePresence>
+                            {shareToast && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 6, scale: 0.9 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 6, scale: 0.9 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="absolute bottom-9 right-0 px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap pointer-events-none"
+                                    style={{ background: "#22c55e", color: "white" }}
+                                >
+                                    Copied!
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
-                ) : null}
-            </div>
 
-            <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
-                <motion.button type="button" whileTap={{ scale: 0.96 }} className={`btn-secondary gap-2 px-4 py-2 text-sm ${hasLiked ? "border-brand-400/30 bg-brand-500/10 text-brand-100" : ""}`} onClick={handleLike}>
-                    <motion.span animate={likePulse ? { scale: [1, 1.35, 1] } : { scale: 1 }} transition={{ duration: 0.28 }}>
-                        {hasLiked ? <SolidHeartIcon className="h-5 w-5 text-rose-400" /> : <HeartIcon className="h-5 w-5" />}
-                    </motion.span>
-                    {formatCompactNumber(likesCount)} likes
-                </motion.button>
-                <button type="button" className="btn-secondary gap-2 px-4 py-2 text-sm" onClick={() => setShowComments((currentState) => !currentState)}>
-                    <ChatBubbleOvalLeftIcon className="h-5 w-5" />
-                    {formatCompactNumber(commentsCount)} comments
-                </button>
-                <button type="button" className={`btn-secondary gap-2 px-4 py-2 text-sm ${hasSaved ? "border-accent-400/40 bg-accent-400/10 text-accent-100" : ""}`} onClick={handleSavePost}>
-                    {hasSaved ? <SolidBookmarkIcon className="h-5 w-5" /> : <BookmarkIcon className="h-5 w-5" />}
-                    {formatCompactNumber(savedCount)} saved
-                </button>
-                <button type="button" className="btn-secondary gap-2 px-4 py-2 text-sm" onClick={handleShare}>
-                    <ShareIcon className="h-5 w-5" />
-                    Share
-                </button>
-            </div>
+                    {/* Save */}
+                    <button
+                        onClick={handleSave}
+                        className="p-2 rounded-lg transition-all hover:bg-white/5"
+                        style={{ color: localSaved ? "var(--primary-light)" : "var(--text-muted)" }}
+                    >
+                        <Bookmark size={17} fill={localSaved ? "var(--primary)" : "none"} strokeWidth={localSaved ? 0 : 1.8} />
+                    </button>
 
-            <CommentBox postId={post._id} isOpen={showComments} commentsCount={post.commentsCount || 0} />
-        </motion.article>
+                </div>
+
+                {/* Comments section */}
+                <AnimatePresence>
+                    {commentsOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="pt-3 space-y-3">
+                                {comments.length > 0 && (
+                                    <div className="space-y-2.5">
+                                        {comments.map((c) => {
+                                            const cAvatar =
+                                                c.userId?.profilePhoto ||
+                                                `https://ui-avatars.com/api/?name=${encodeURIComponent(c.userId?.name || "U")}&background=6366f1&color=fff&bold=true&size=64`;
+                                            return (
+                                                <div key={c._id} className="flex gap-2.5">
+                                                    <img src={cAvatar} className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5" alt="" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div
+                                                            className="rounded-xl rounded-tl-sm px-3 py-2"
+                                                            style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}
+                                                        >
+                                                            <span className="text-[12px] font-semibold">{c.userId?.name || "User"}</span>
+                                                            <p className="text-[12.5px] leading-relaxed mt-0.5" style={{ color: "var(--text-sub)" }}>{c.text}</p>
+                                                        </div>
+                                                        <span className="text-[10.5px] pl-1 mt-0.5 block" style={{ color: "var(--text-faint)" }}>
+                                                            {timeAgo(c.createdAt)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                {comments.length === 0 && commentsLoaded && (
+                                    <p className="text-[12px] text-center py-2" style={{ color: "var(--text-faint)" }}>No comments yet. Be first!</p>
+                                )}
+
+                                {/* Comment input */}
+                                <div className="flex gap-2.5 items-center">
+                                    <img
+                                        src={user?.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "U")}&background=6366f1&color=fff&bold=true&size=64`}
+                                        className="w-7 h-7 rounded-full object-cover shrink-0"
+                                        alt=""
+                                    />
+                                    <div className="flex-1 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}>
+                                        <input
+                                            className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-slate-600"
+                                            placeholder="Write a comment…"
+                                            value={commentText}
+                                            onChange={(e) => setCommentText(e.target.value)}
+                                            onKeyDown={(e) => e.key === "Enter" && handleSubmitComment()}
+                                            style={{ color: "var(--text-main)" }}
+                                        />
+                                        <button
+                                            onClick={handleSubmitComment}
+                                            disabled={!commentText.trim() || commentSubmitting}
+                                            className="transition-colors"
+                                            style={commentText.trim() ? { color: "var(--primary-light)" } : { color: "var(--text-faint)", cursor: "not-allowed" }}
+                                        >
+                                            <Send size={13} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </article>
     );
 }

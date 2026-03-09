@@ -2,7 +2,17 @@ import User from "../models/User.js";
 import { createNotification } from "../services/notificationService.js";
 import { buildSafeUser, ensureUniqueUsername } from "../services/authService.js";
 
-const publicUserSelect = "username name email profilePhoto headline bio college skills followers following role authProvider isEmailVerified createdAt updatedAt";
+const publicUserSelect = "username name email profilePhoto coverPhoto headline bio college skills socialLinks followers following role authProvider isEmailVerified createdAt updatedAt";
+
+const normalizeProfileLink = (value) => {
+    const trimmedValue = value?.trim() || "";
+
+    if (!trimmedValue) {
+        return "";
+    }
+
+    return /^https?:\/\//i.test(trimmedValue) ? trimmedValue : `https://${trimmedValue}`;
+};
 
 const formatProfileResponse = (user, viewerId) => ({
     ...buildSafeUser(user),
@@ -40,9 +50,19 @@ export const updateCurrentUser = async (req, res) => {
         user.bio = req.body.bio?.trim() ?? user.bio;
         user.college = req.body.college?.trim() ?? user.college;
         user.profilePhoto = req.body.profilePhoto?.trim() ?? user.profilePhoto;
+        user.coverPhoto = req.body.coverPhoto?.trim() ?? user.coverPhoto;
         user.skills = Array.isArray(req.body.skills)
             ? req.body.skills.map((skill) => skill.trim()).filter(Boolean)
             : user.skills;
+
+        if (req.body.socialLinks && typeof req.body.socialLinks === "object") {
+            user.socialLinks = {
+                github: normalizeProfileLink(req.body.socialLinks.github),
+                linkedin: normalizeProfileLink(req.body.socialLinks.linkedin),
+                twitter: normalizeProfileLink(req.body.socialLinks.twitter),
+                portfolio: normalizeProfileLink(req.body.socialLinks.portfolio)
+            };
+        }
 
         await user.save();
 

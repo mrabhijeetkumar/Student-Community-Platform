@@ -1,13 +1,13 @@
 import { MagnifyingGlassIcon, SparklesIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import CommunityFeedPanel from "../components/CommunityFeedPanel";
 import LoadingCard from "../components/ui/LoadingCard";
 import Notification from "../components/Notification";
 import PageHero from "../components/ui/PageHero";
 import PageTransition from "../components/ui/PageTransition";
-import { useAuth } from "../context/AuthContext.jsx";
-import { getCommunities, joinCommunity, leaveCommunity } from "../services/api";
+import { useAuth } from "../context/useAuth.js";
+import { getCommunities, getPosts, joinCommunity, leaveCommunity } from "../services/api";
 
 export default function Community() {
     const { token } = useAuth();
@@ -15,6 +15,11 @@ export default function Community() {
     const [query, setQuery] = useState("");
     const [loading, setLoading] = useState(true);
     const [feedback, setFeedback] = useState("");
+    const [selectedCommunityId, setSelectedCommunityId] = useState("");
+    const [communityPosts, setCommunityPosts] = useState([]);
+    const [postsLoading, setPostsLoading] = useState(false);
+    const [postsFeedback, setPostsFeedback] = useState("");
+    const [feedType, setFeedType] = useState("latest");
 
     useEffect(() => {
         let isMounted = true;
@@ -50,6 +55,10 @@ export default function Community() {
         () => communities.find((community) => community.featured) || communities[0],
         [communities]
     );
+    const selectedCommunity = useMemo(
+        () => communities.find((community) => community._id === selectedCommunityId) || featuredCommunity || null,
+        [communities, featuredCommunity, selectedCommunityId]
+    );
     const communityInsights = useMemo(() => {
         const totalMembers = communities.reduce((sum, community) => sum + (community.membersCount || 0), 0);
         const totalPosts = communities.reduce((sum, community) => sum + (community.postsCount || 0), 0);
@@ -63,6 +72,58 @@ export default function Community() {
     }, [communities]);
     const visibleCategories = useMemo(() => Array.from(new Set(communities.map((community) => community.category).filter(Boolean))).slice(0, 6), [communities]);
 
+    useEffect(() => {
+        if (!communities.length) {
+            setSelectedCommunityId("");
+            return;
+        }
+
+        const selectedExists = communities.some((community) => community._id === selectedCommunityId);
+
+        if (!selectedExists) {
+            setSelectedCommunityId((featuredCommunity || communities[0])._id);
+        }
+    }, [communities, featuredCommunity, selectedCommunityId]);
+
+    useEffect(() => {
+        if (!selectedCommunity?._id || !token) {
+            setCommunityPosts([]);
+            return;
+        }
+
+        let isMounted = true;
+
+        const loadCommunityPosts = async () => {
+            setPostsLoading(true);
+
+            try {
+                const items = await getPosts(feedType, token, {
+                    communityId: selectedCommunity._id,
+                    limit: 8
+                });
+
+                if (isMounted) {
+                    setCommunityPosts(Array.isArray(items) ? items : []);
+                    setPostsFeedback("");
+                }
+            } catch (error) {
+                if (isMounted) {
+                    setPostsFeedback(error.message);
+                }
+            } finally {
+                if (isMounted) {
+                    setPostsLoading(false);
+                }
+            }
+        };
+
+        loadCommunityPosts();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [feedType, selectedCommunity?._id, token]);
+
     const handleToggleMembership = async (community) => {
         try {
             const updatedCommunity = community.isJoined
@@ -74,6 +135,17 @@ export default function Community() {
         } catch (error) {
             setFeedback(error.message);
         }
+    };
+
+    const handleCommunityPostUpdate = (updatedPost) => {
+        setCommunityPosts((currentPosts) => currentPosts.map((post) => post._id === updatedPost._id ? updatedPost : post));
+    };
+
+    const handleCommunityPostDelete = (postId) => {
+        setCommunityPosts((currentPosts) => currentPosts.filter((post) => post._id !== postId));
+        setCommunities((currentCommunities) => currentCommunities.map((community) => community._id === selectedCommunityId
+            ? { ...community, postsCount: Math.max(0, (community.postsCount || 0) - 1) }
+            : community));
     };
 
     return (
@@ -161,9 +233,9 @@ export default function Community() {
                                     <button type="button" className={featuredCommunity.isJoined ? "btn-secondary justify-center" : "btn-primary justify-center"} onClick={() => handleToggleMembership(featuredCommunity)}>
                                         {featuredCommunity.isJoined ? "Joined" : "Join community"}
                                     </button>
-                                    <Link to={`/?community=${featuredCommunity.slug}`} className="btn-secondary justify-center">
-                                        Open community feed
-                                    </Link>
+                                    <button type="button" className="btn-secondary justify-center" onClick={() => setSelectedCommunityId(featuredCommunity._id)}>
+                                        View posts
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -195,15 +267,27 @@ export default function Community() {
                                 <button type="button" className={community.isJoined ? "btn-secondary flex-1 justify-center" : "btn-primary flex-1 justify-center"} onClick={() => handleToggleMembership(community)}>
                                     {community.isJoined ? "Joined" : "Join community"}
                                 </button>
-                                <Link to={`/?community=${community.slug}`} className="btn-secondary flex-1 justify-center">
-                                    Open feed
-                                </Link>
+                                <button type="button" className="btn-secondary flex-1 justify-center" onClick={() => setSelectedCommunityId(community._id)}>
+                                    View posts
+                                </button>
                             </div>
                         </div>
                     </motion.article>
                 ))}
                 {!loading && communities.length === 0 ? <div className="card-surface p-6 text-sm text-slate-400">No communities matched this search.</div> : null}
             </div>
+
+            <CommunityFeedPanel
+                community={selectedCommunity}
+                posts={communityPosts}
+                loading={postsLoading}
+                error={postsFeedback}
+                activeFilter={feedType}
+                onFilterChange={setFeedType}
+                onToggleMembership={handleToggleMembership}
+                onPostUpdate={handleCommunityPostUpdate}
+                onPostDelete={handleCommunityPostDelete}
+            />
         </PageTransition>
     );
 }

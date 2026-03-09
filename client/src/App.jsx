@@ -1,12 +1,12 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
-import { useAuth } from "./context/AuthContext.jsx";
+import { Navigate, Route, Routes } from "react-router-dom";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import { useAuth } from "./context/useAuth.js";
 
 const AppShell = lazy(() => import("./components/layout/AppShell"));
 const Community = lazy(() => import("./pages/Community"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Explore = lazy(() => import("./pages/Explore"));
-const Home = lazy(() => import("./pages/Home"));
 const Login = lazy(() => import("./pages/Login"));
 const Messages = lazy(() => import("./pages/Messages"));
 const Notifications = lazy(() => import("./pages/Notifications"));
@@ -17,29 +17,15 @@ function RouteLoader() {
     return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Loading platform...</div>;
 }
 
-function ProtectedRoute() {
-    const { user, isBootstrapping } = useAuth();
-
-    if (isBootstrapping) {
-        return <RouteLoader />;
-    }
-
-    if (!user) {
-        return <Navigate to="/login" replace />;
-    }
-
-    return <Outlet />;
-}
-
 function PublicOnlyRoute({ children }) {
-    const { user, isBootstrapping } = useAuth();
+    const { isAuthenticated, isBootstrapping } = useAuth();
 
     if (isBootstrapping) {
         return <RouteLoader />;
     }
 
-    if (user) {
-        return <Navigate to="/" replace />;
+    if (isAuthenticated) {
+        return <Navigate to="/dashboard" replace />;
     }
 
     return children;
@@ -54,7 +40,7 @@ export default function App() {
 
                 <Route element={<ProtectedRoute />}>
                     <Route element={<AppShell />}>
-                        <Route path="/" element={<Home />} />
+                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
                         <Route path="/explore" element={<Explore />} />
                         <Route path="/community" element={<Navigate to="/communities" replace />} />
                         <Route path="/communities" element={<Community />} />

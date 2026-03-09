@@ -25,9 +25,28 @@ const server = http.createServer(app);
 connectDB();
 
 // middlewares
+const allowedOrigins = [
+    process.env.CLIENT_URL || "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+];
+
 app.use(cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173"
+    origin: (origin, callback) => {
+        // allow requests with no origin (curl, Postman, mobile apps)
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+    optionsSuccessStatus: 200, // some browsers (IE11) choke on 204
 }));
+
+// handle preflight for all routes
+app.options(/.*/, cors());
 app.use(express.json({ limit: "2mb" }));
 app.use((req, res, next) => {
     req.models = { Message };

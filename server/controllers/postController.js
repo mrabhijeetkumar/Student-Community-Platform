@@ -4,12 +4,50 @@ import Community from "../models/Community.js";
 import { buildPostResponse, getLatestFeed, getFollowingFeed, getSavedFeed, getSmartFeed, getTrendingFeed } from "../services/feedService.js";
 import { createNotification } from "../services/notificationService.js";
 
+const hasUserVote = (entries = [], userId) => entries.some((entry) => entry.toString() === userId.toString());
+const removeUserVote = (entries = [], userId) => entries.filter((entry) => entry.toString() !== userId.toString());
+
+const applyVoteState = (post, userId, voteType) => {
+    post.downvotes = post.downvotes || [];
+
+    const alreadyUpvoted = hasUserVote(post.likes, userId);
+    const alreadyDownvoted = hasUserVote(post.downvotes, userId);
+    let becameUpvoted = false;
+
+    if (voteType === "up") {
+        if (alreadyUpvoted) {
+            post.likes = removeUserVote(post.likes, userId);
+        } else {
+            post.likes.push(userId);
+            post.downvotes = removeUserVote(post.downvotes, userId);
+            becameUpvoted = true;
+        }
+    }
+
+    if (voteType === "down") {
+        if (alreadyDownvoted) {
+            post.downvotes = removeUserVote(post.downvotes, userId);
+        } else {
+            post.downvotes.push(userId);
+            post.likes = removeUserVote(post.likes, userId);
+        }
+    }
+
+    if (voteType === "none") {
+        post.likes = removeUserVote(post.likes, userId);
+        post.downvotes = removeUserVote(post.downvotes, userId);
+    }
+
+    return { becameUpvoted };
+};
+
 export const createPost = async (req, res) => {
     try {
-        const content = req.body?.content?.trim();
+        const content = req.body?.content?.trim() || "";
+        const incomingImages = Array.isArray(req.body.images) ? req.body.images.filter(Boolean) : [];
 
-        if (!content) {
-            return res.status(400).json({ message: "Post content is required" });
+        if (!content && incomingImages.length === 0) {
+            return res.status(400).json({ message: "Post must have content or at least one image" });
         }
 
         let community = null;
@@ -25,7 +63,7 @@ export const createPost = async (req, res) => {
         const post = await Post.create({
             author: req.user._id,
             content,
-            images: Array.isArray(req.body.images) ? req.body.images.filter(Boolean) : [],
+            images: incomingImages,
             tags: Array.isArray(req.body.tags) ? req.body.tags.filter(Boolean) : [],
             community: community?._id || null
         });
@@ -162,30 +200,59 @@ export const toggleLike = async (req, res) => {
             return res.status(404).json({ message: "Post not found" });
         }
 
-        const index = post.likes.findIndex(
-            (like) => like.toString() === req.user._id.toString()
-        );
+        const { becameUpvoted } = applyVoteState(post, req.user._id, "up");
 
-        if (index === -1) {
-            post.likes.push(req.user._id);
-
-            if (post.author.toString() !== req.user._id.toString()) {
-                await createNotification({
-                    userId: post.author,
-                    actorId: req.user._id,
-                    type: "like",
-                    title: "New like on your post",
-                    message: `${req.user.name} liked your post.`,
-                    link: "/"
-                });
-            }
-        } else {
-            post.likes.splice(index, 1);
+        if (becameUpvoted && post.author.toString() !== req.user._id.toString()) {
+            await createNotification({
+                userId: post.author,
+                actorId: req.user._id,
+                type: "like",
+                title: "New like on your post",
+                message: `${req.user.name} liked your post.`,
+                link: "/"
+            });
         }
 
         await post.save();
         await post.populate("author", "name username profilePhoto headline college");
         await post.populate("community", "name slug category coverGradient postsCount");
+        res.json(buildPostResponse(post));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const voteOnPost = async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+
+        if (!post) {
+            return res.status(404).json({ message: "Post not found" });
+        }
+
+        const voteType = req.body?.voteType;
+
+        if (!["up", "down", "none"].includes(voteType)) {
+            return res.status(400).json({ message: "voteType must be one of up, down, or none" });
+        }
+
+        const { becameUpvoted } = applyVoteState(post, req.user._id, voteType);
+
+        if (becameUpvoted && post.author.toString() !== req.user._id.toString()) {
+            await createNotification({
+                userId: post.author,
+                actorId: req.user._id,
+                type: "like",
+                title: "New upvote on your post",
+                message: `${req.user.name} upvoted your post.`,
+                link: "/"
+            });
+        }
+
+        await post.save();
+        await post.populate("author", "name username profilePhoto headline college");
+        await post.populate("community", "name slug category coverGradient postsCount");
+
         res.json(buildPostResponse(post));
     } catch (error) {
         res.status(500).json({ message: error.message });

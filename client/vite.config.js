@@ -5,6 +5,19 @@ import tailwindcss from "tailwindcss";
 
 export default defineConfig({
     plugins: [react()],
+    server: {
+        proxy: {
+            "/api": {
+                target: "http://localhost:5050",
+                changeOrigin: true,
+            },
+            "/socket.io": {
+                target: "http://localhost:5050",
+                changeOrigin: true,
+                ws: true,
+            }
+        }
+    },
     build: {
         rollupOptions: {
             output: {

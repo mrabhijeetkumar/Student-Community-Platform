@@ -1,7 +1,7 @@
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 import { createNotification } from "../services/notificationService.js";
-import { emitToUser } from "../socket/socket.js";
+import { emitToUser, isUserConnected } from "../socket/socket.js";
 
 const populateMessageQuery = (query) =>
     query.populate("sender", "name username profilePhoto headline college").populate("recipient", "name username profilePhoto headline college");
@@ -75,16 +75,30 @@ export const getMessagesWithUser = async (req, res) => {
             }).sort({ createdAt: 1 })
         );
 
-        await Message.updateMany(
+        const unreadMessages = await Message.find(
             {
                 sender: req.params.userId,
                 recipient: req.user._id,
                 readAt: null
             },
-            {
-                readAt: new Date()
-            }
+            { _id: 1 }
         );
+
+        if (unreadMessages.length > 0) {
+            const readAt = new Date();
+            const unreadIds = unreadMessages.map((message) => message._id);
+
+            await Message.updateMany(
+                { _id: { $in: unreadIds } },
+                { readAt }
+            );
+
+            emitToUser(req.params.userId, "message:read", {
+                conversationUserId: req.user._id.toString(),
+                messageIds: unreadIds.map((messageId) => messageId.toString()),
+                readAt: readAt.toISOString()
+            });
+        }
 
         res.json({ partner, messages });
 
@@ -119,13 +133,22 @@ export const sendMessage = async (req, res) => {
         const message = await Message.create({
             sender: req.user._id,
             recipient: req.params.userId,
-            content
+            content,
+            deliveredAt: isUserConnected(req.params.userId) ? new Date() : null
         });
 
         await message.populate("sender", "name username profilePhoto headline college");
         await message.populate("recipient", "name username profilePhoto headline college");
 
         emitToUser(req.params.userId, "message:new", message);
+
+        if (message.deliveredAt) {
+            emitToUser(req.user._id, "message:delivered", {
+                conversationUserId: req.params.userId,
+                messageIds: [message._id.toString()],
+                deliveredAt: message.deliveredAt.toISOString()
+            });
+        }
 
         await createNotification({
             userId: req.params.userId,

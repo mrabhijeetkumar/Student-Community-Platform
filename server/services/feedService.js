@@ -18,6 +18,9 @@ export const buildPostResponse = (post) => ({
     tags: post.tags,
     community: post.community,
     likes: post.likes,
+    upvotes: post.likes,
+    downvotes: post.downvotes || [],
+    voteScore: (post.likes?.length || 0) - (post.downvotes?.length || 0),
     savedBy: post.savedBy,
     commentsCount: post.commentsCount,
     createdAt: post.createdAt,
@@ -49,10 +52,12 @@ export const getTrendingFeed = async (limit = 20, communityId) => {
         ...matchStage,
         {
             $addFields: {
-                likesCount: { $size: "$likes" },
+                likesCount: { $size: { $ifNull: ["$likes", []] } },
+                downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
                 trendScore: {
                     $add: [
-                        { $multiply: [{ $size: "$likes" }, 2] },
+                        { $multiply: [{ $size: { $ifNull: ["$likes", []] } }, 2] },
+                        { $multiply: [{ $size: { $ifNull: ["$downvotes", []] } }, -1] },
                         { $multiply: ["$commentsCount", 3] }
                     ]
                 }

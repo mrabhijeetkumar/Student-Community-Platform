@@ -1,18 +1,16 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ChartBarSquareIcon, HomeIcon, InboxIcon, BellIcon, UserCircleIcon, MagnifyingGlassIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { ChartBarSquareIcon, InboxIcon, BellIcon, UserCircleIcon, UserGroupIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { NavLink, Outlet } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext.jsx";
+import { useAuth } from "../../context/useAuth.js";
 import Navbar from "../Navbar";
 import Sidebar from "../Sidebar";
-import RightRail from "./RightRail";
 
 const mobileNav = [
-    { label: "Home", to: "/", icon: HomeIcon },
+    { label: "Feed", to: "/dashboard", icon: ChartBarSquareIcon },
     { label: "Explore", to: "/explore", icon: MagnifyingGlassIcon },
     { label: "Inbox", to: "/messages", icon: InboxIcon },
     { label: "Alerts", to: "/notifications", icon: BellIcon },
     { label: "Groups", to: "/communities", icon: UserGroupIcon },
-    { label: "Stats", to: "/dashboard", icon: ChartBarSquareIcon },
     { label: "Profile", to: "/profile", icon: UserCircleIcon }
 ];
 
@@ -20,37 +18,38 @@ export default function AppShell() {
     const { user } = useAuth();
 
     return (
-        <div className="relative isolate min-h-screen overflow-x-hidden">
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="relative isolate flex h-screen overflow-hidden">
+            {/* Background decorations */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden -z-10">
                 <div className="floating-orb left-[-6rem] top-[-4rem] hidden h-56 w-56 bg-brand-500/14 lg:block" />
-                <div className="floating-orb right-[-4rem] top-20 hidden h-64 w-64 bg-accent-400/8 xl:block" />
                 <div className="floating-orb bottom-[-6rem] left-1/3 hidden h-56 w-56 bg-sky-400/8 lg:block" />
                 <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-brand-500/8 via-white/[0.02] to-transparent" />
             </div>
 
-            <div className="relative mx-auto flex min-h-screen w-full max-w-[1560px] items-start gap-4 px-3 pb-24 pt-4 sm:px-4 lg:gap-6 lg:px-6 lg:pb-8 lg:pt-6 xl:px-8">
+            {/* Fixed left sidebar */}
+            <div className="hidden lg:flex lg:flex-col lg:flex-none lg:w-[252px] h-screen px-3 pt-4 pb-4 xl:px-4">
                 <Sidebar />
-
-                <main className="min-w-0 flex-1 space-y-5 lg:space-y-6">
-                    <Navbar />
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={user?._id}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="min-w-0"
-                        >
-                            <Outlet />
-                        </motion.div>
-                    </AnimatePresence>
-                </main>
-
-                <RightRail />
             </div>
 
+            {/* Scrollable main content */}
+            <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto scrollbar-thin pb-24 lg:pb-0 pt-4 px-3 sm:px-4 lg:pr-6 xl:pr-8">
+                <Navbar />
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={user?._id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="min-w-0 mt-5 lg:mt-6"
+                    >
+                        <Outlet />
+                    </motion.div>
+                </AnimatePresence>
+            </main>
+
+            {/* Mobile bottom nav */}
             <div className="fixed inset-x-3 bottom-3 z-30 lg:hidden sm:inset-x-4 sm:bottom-4">
-                <div className="card-surface grid grid-cols-7 gap-1 p-2 shadow-2xl">
+                <div className="card-surface grid grid-cols-6 gap-1 p-2 shadow-2xl">
                     {mobileNav.map((item) => {
                         const Icon = item.icon;
                         const target = item.to === "/profile" ? `/profile/${user?.username}` : item.to;

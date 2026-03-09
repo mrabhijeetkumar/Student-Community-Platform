@@ -38,6 +38,11 @@ const userSchema = new mongoose.Schema(
             default: ""
         },
 
+        coverPhoto: {
+            type: String,
+            default: ""
+        },
+
         headline: {
             type: String,
             default: ""
@@ -57,6 +62,25 @@ const userSchema = new mongoose.Schema(
             type: String,
             trim: true
         }],
+
+        socialLinks: {
+            github: {
+                type: String,
+                default: ""
+            },
+            linkedin: {
+                type: String,
+                default: ""
+            },
+            twitter: {
+                type: String,
+                default: ""
+            },
+            portfolio: {
+                type: String,
+                default: ""
+            }
+        },
 
         role: {
             type: String,
@@ -86,6 +110,11 @@ const userSchema = new mongoose.Schema(
         },
 
         lastLoginAt: {
+            type: Date,
+            default: null
+        },
+
+        lastSeenAt: {
             type: Date,
             default: null
         },

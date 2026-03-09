@@ -14,6 +14,8 @@ const router = express.Router();
 
 router.use(protect);
 
+router.get("/profile", getCurrentUser);
+router.put("/profile", updateCurrentUser);
 router.get("/me", getCurrentUser);
 router.put("/me", updateCurrentUser);
 router.get("/directory", getUserDirectory);

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useEffect, useMemo, useState } from "react";
 import {
     fetchSession,
     loginUser,
@@ -10,19 +10,39 @@ import {
 const AuthContext = createContext(null);
 const STORAGE_KEY = "student-community-auth";
 
+function readStoredSession() {
+    if (typeof window === "undefined") {
+        return { token: "", user: null };
+    }
+
+    const rawSession = window.localStorage.getItem(STORAGE_KEY);
+
+    if (!rawSession) {
+        return { token: "", user: null };
+    }
+
+    try {
+        const parsedSession = JSON.parse(rawSession);
+        return {
+            token: parsedSession?.token || "",
+            user: parsedSession?.user || null
+        };
+    } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
+        return { token: "", user: null };
+    }
+}
+
 export function AuthProvider({ children }) {
     const [token, setToken] = useState("");
     const [user, setUser] = useState(null);
     const [isBootstrapping, setIsBootstrapping] = useState(true);
 
     useEffect(() => {
-        const storedSession = window.localStorage.getItem(STORAGE_KEY);
+        const storedSession = readStoredSession();
 
-        if (storedSession) {
-            const parsedSession = JSON.parse(storedSession);
-            setToken(parsedSession.token);
-            setUser(parsedSession.user);
-        }
+        setToken(storedSession.token);
+        setUser(storedSession.user);
 
         setIsBootstrapping(false);
     }, []);
@@ -109,12 +129,4 @@ export function AuthProvider({ children }) {
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-    const context = useContext(AuthContext);
-
-    if (!context) {
-        throw new Error("useAuth must be used within AuthProvider");
-    }
-
-    return context;
-}
+export { AuthContext };

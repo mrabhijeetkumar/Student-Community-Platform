@@ -10,7 +10,8 @@ const postSchema = new mongoose.Schema(
 
         content: {
             type: String,
-            required: true,
+            required: false,
+            default: "",
             trim: true,
             maxlength: 2000
         },
@@ -33,6 +34,11 @@ const postSchema = new mongoose.Schema(
         },
 
         likes: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }],
+
+        downvotes: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
         }],

@@ -1,12 +1,40 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api";
+function normalizeApiBaseUrl(url) {
+    return (url || "http://localhost:5050/api").replace(/\/$/, "");
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(
+    import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:5050/api"
+);
+const STORAGE_KEY = "student-community-auth";
+
+function getStoredToken() {
+    if (typeof window === "undefined") {
+        return "";
+    }
+
+    const rawSession = window.localStorage.getItem(STORAGE_KEY);
+
+    if (!rawSession) {
+        return "";
+    }
+
+    try {
+        const parsedSession = JSON.parse(rawSession);
+        return parsedSession?.token || "";
+    } catch {
+        return "";
+    }
+}
 
 async function request(path, options = {}) {
     const { headers = {}, ...restOptions } = options;
+    const storedToken = getStoredToken();
 
     const response = await fetch(`${API_BASE_URL}${path}`, {
         ...restOptions,
         headers: {
             "Content-Type": "application/json",
+            ...(storedToken && !headers.Authorization ? { Authorization: `Bearer ${storedToken}` } : {}),
             ...headers
         }
     });
@@ -18,6 +46,18 @@ async function request(path, options = {}) {
     }
 
     return data;
+}
+
+async function requestWithFallback(primaryPath, fallbackPath, options = {}) {
+    try {
+        return await request(primaryPath, options);
+    } catch (error) {
+        if (!fallbackPath) {
+            throw error;
+        }
+
+        return request(fallbackPath, options);
+    }
 }
 
 export function requestOtp(payload) {
@@ -67,10 +107,20 @@ export function getPosts(type = "smart", token, options = {}) {
         params.set("communityId", options.communityId);
     }
 
-    return request(`/posts/feed?${params.toString()}`, {
+    return request(`/posts?${params.toString()}`, {
         headers: {
             Authorization: `Bearer ${token}`
         }
+    });
+}
+
+export function votePost(postId, voteType, token) {
+    return request(`/posts/${postId}/vote`, {
+        method: "PUT",
+        headers: {
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ voteType })
     });
 }
 
@@ -157,7 +207,15 @@ export function deleteComment(commentId, token) {
 }
 
 export function getCurrentUser(token) {
-    return request("/users/me", {
+    return requestWithFallback("/users/profile", "/users/me", {
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+}
+
+export function getMyProfile(token) {
+    return requestWithFallback("/users/profile", "/users/me", {
         headers: {
             Authorization: `Bearer ${token}`
         }
@@ -165,7 +223,17 @@ export function getCurrentUser(token) {
 }
 
 export function updateCurrentUser(payload, token) {
-    return request("/users/me", {
+    return requestWithFallback("/users/profile", "/users/me", {
+        method: "PUT",
+        headers: {
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+    });
+}
+
+export function updateMyProfile(payload, token) {
+    return requestWithFallback("/users/profile", "/users/me", {
         method: "PUT",
         headers: {
             Authorization: `Bearer ${token}`

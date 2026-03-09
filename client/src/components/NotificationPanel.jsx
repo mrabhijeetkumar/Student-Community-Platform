@@ -13,7 +13,16 @@ function HeartWrap(props) {
     return <CheckCircleIcon {...props} />;
 }
 
-export default function NotificationPanel({ open, notifications = [], unreadCount = 0, onClose, onMarkRead, onMarkAllRead }) {
+export default function NotificationPanel({
+    open,
+    notifications = [],
+    unreadCount = 0,
+    onClose,
+    onMarkRead,
+    onMarkAllRead,
+    onNotificationClick,
+    onOpenAll
+}) {
     return (
         <AnimatePresence>
             {open ? (
@@ -48,7 +57,7 @@ export default function NotificationPanel({ open, notifications = [], unreadCoun
                                         key={item._id}
                                         whileHover={{ y: -2 }}
                                         type="button"
-                                        onClick={() => onMarkRead(item._id)}
+                                        onClick={() => onNotificationClick?.(item)}
                                         className={`flex w-full gap-3 rounded-3xl border px-4 py-4 text-left transition ${item.isRead ? "border-white/8 bg-white/[0.03]" : "border-brand-400/30 bg-brand-500/10 shadow-glow"}`}
                                     >
                                         <div className="mt-1 rounded-2xl bg-white/[0.06] p-2 text-accent-300">
@@ -62,6 +71,15 @@ export default function NotificationPanel({ open, notifications = [], unreadCoun
                                     </motion.button>
                                 );
                             })}
+                        </div>
+                        <div className="border-t border-white/10 px-5 py-3">
+                            <button
+                                type="button"
+                                className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/[0.06]"
+                                onClick={onOpenAll}
+                            >
+                                View all notifications
+                            </button>
                         </div>
                     </motion.div>
                 </>
