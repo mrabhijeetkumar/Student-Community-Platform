@@ -18,13 +18,7 @@ export default function AppShell() {
     const { user } = useAuth();
 
     return (
-        <div className="relative isolate flex h-screen overflow-hidden">
-            {/* Background decorations */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden -z-10">
-                <div className="floating-orb left-[-6rem] top-[-4rem] hidden h-56 w-56 bg-brand-500/14 lg:block" />
-                <div className="floating-orb bottom-[-6rem] left-1/3 hidden h-56 w-56 bg-sky-400/8 lg:block" />
-                <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-brand-500/8 via-white/[0.02] to-transparent" />
-            </div>
+        <div className="relative isolate flex h-screen overflow-hidden bg-transparent">
 
             {/* Fixed left sidebar */}
             <div className="hidden lg:flex lg:flex-col lg:flex-none lg:w-[252px] h-screen px-3 pt-4 pb-4 xl:px-4">

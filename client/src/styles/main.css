@@ -4,441 +4,103 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ════════════════════════════════════════════
-   DESIGN TOKENS — Clean Dark (Linear / Shadcn)
-════════════════════════════════════════════ */
-
 @layer base {
-
     :root {
-        --bg-base: #09090b;
-        --surface: #111113;
-        --surface-elevated: #18181b;
-        --surface-soft: #1c1c1f;
-        --surface-hover: #27272a;
+        --bg-base: #0b1020;
+        --surface: #121a2c;
+        --surface-elevated: #18243a;
+        --surface-soft: #21314d;
+        --surface-hover: #2a3b5c;
 
-        --border: rgba(255, 255, 255, 0.08);
-        --border-hover: rgba(255, 255, 255, 0.14);
+        --border: #2c3f63;
+        --border-hover: #3a5180;
 
-        --text-main: #fafafa;
-        --text-sub: #a1a1aa;
-        --text-muted: #71717a;
-        --text-faint: #3f3f46;
+        --text-main: #eef4ff;
+        --text-sub: #bfcee8;
+        --text-muted: #8ea4c9;
+        --text-faint: #647da6;
 
-        --primary: #6366f1;
-        --primary-light: #818cf8;
-        --primary-dark: #4f46e5;
-        --primary-glow: rgba(99, 102, 241, 0.15);
+        --primary: #4f7cff;
+        --primary-light: #7fa1ff;
+        --primary-dark: #3f67dd;
+        --primary-glow: rgba(79, 124, 255, 0.26);
 
         --success: #22c55e;
         --warning: #f59e0b;
         --error: #ef4444;
     }
 
-    html {
-        font-family: "Inter", system-ui, sans-serif;
-        color-scheme: dark;
-        scroll-behavior: smooth;
-    }
-
-    body {
-        @apply min-h-screen antialiased;
-        color: var(--text-main);
-        background-color: var(--bg-base);
-        overflow-x: hidden;
-    }
-
-    #root {
-        @apply min-h-screen;
-    }
-
-    ::selection {
-        background: rgba(99, 102, 241, 0.28);
-        color: white;
-    }
-
+    html { font-family: "Inter", system-ui, sans-serif; color-scheme: dark; scroll-behavior: smooth; }
+    body { @apply min-h-screen antialiased; color: var(--text-main); background: radial-gradient(circle at top right, #1b2950 0%, #0b1020 45%); overflow-x: hidden; }
+    #root { @apply min-h-screen; }
+    ::selection { background: rgba(79, 124, 255, 0.38); color: white; }
 }
-
-/* ════════════════════════════════════════════
-   COMPONENTS
-════════════════════════════════════════════ */
 
 @layer components {
+    .card { @apply rounded-xl relative; background: var(--surface-elevated); border: 1px solid var(--border); padding: 1.25rem; transition: border-color .15s, transform .15s; box-shadow: 0 12px 30px rgba(5, 10, 24, 0.35); }
+    .card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+    .card-soft { @apply rounded-xl; background: var(--surface); border: 1px solid var(--border); padding: 1.25rem; }
+    .card-floating { @apply rounded-2xl relative; background: var(--surface-elevated); border: 1px solid var(--border-hover); box-shadow: 0 28px 64px rgba(5, 10, 24, 0.52); padding: 1.75rem; }
+    .card-ghost { @apply rounded-xl; background: var(--surface); border: 1px solid var(--border); padding: 1rem; }
+    .card-surface { @apply rounded-2xl; background: #121c31; border: 1px solid var(--border-hover); box-shadow: 0 24px 56px rgba(5, 10, 24, 0.48); }
+    .card-subtle { @apply rounded-lg; background: transparent; border: 1px solid var(--border); transition: background .12s; }
+    .card-subtle:hover { background: var(--surface-hover); }
 
-    /* ── CARDS ─────────────────────────────── */
+    .input { @apply w-full rounded-lg px-3.5 py-2.5 text-sm outline-none transition-all duration-150; background: var(--surface); border: 1px solid var(--border); color: var(--text-main); }
+    .input::placeholder { color: var(--text-muted); }
+    .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
 
-    .card {
-        @apply rounded-xl relative;
-        background: var(--surface-elevated);
-        border: 1px solid var(--border);
-        padding: 1.25rem;
-        transition: border-color 0.15s;
-    }
+    .btn-primary { @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg text-white transition-all duration-150; background: linear-gradient(135deg, var(--primary), #5f8bff); box-shadow: 0 8px 24px rgba(79, 124, 255, 0.35); }
+    .btn-primary:hover { background: linear-gradient(135deg, #5f8bff, var(--primary-dark)); }
+    .btn-primary:active { transform: scale(0.98); }
 
-    .card:hover {
-        border-color: var(--border-hover);
-    }
+    .btn-secondary { @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-150; background: var(--surface-elevated); border: 1px solid var(--border-hover); color: var(--text-sub); }
+    .btn-secondary:hover { background: var(--surface-hover); color: var(--text-main); }
 
-    .card-soft {
-        @apply rounded-xl;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        padding: 1.25rem;
-    }
+    .icon-btn { @apply flex items-center justify-center h-9 w-9 rounded-lg transition-all duration-150; background: var(--surface-elevated); border: 1px solid var(--border); color: var(--text-sub); }
+    .icon-btn:hover { background: var(--surface-hover); border-color: var(--border-hover); color: var(--text-main); }
 
-    .card-floating {
-        @apply rounded-2xl relative;
-        background: var(--surface-elevated);
-        border: 1px solid var(--border-hover);
-        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
-        padding: 1.75rem;
-    }
+    .sidebar-item { @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer; color: var(--text-muted); }
+    .sidebar-item:hover { background: var(--surface-hover); color: var(--text-sub); }
+    .sidebar-item.active { background: rgba(79, 124, 255, 0.18); color: var(--primary-light); }
 
-    .card-ghost {
-        @apply rounded-xl;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid var(--border);
-        padding: 1rem;
-    }
+    .tag { @apply text-xs px-2.5 py-0.5 rounded-md font-medium inline-flex items-center gap-1 transition-colors duration-150; background: var(--surface-hover); border: 1px solid var(--border); color: var(--text-muted); }
+    .tag:hover { border-color: rgba(79, 124, 255, 0.45); color: var(--primary-light); }
 
-    /* Used by mobile nav, notification panel, etc. */
-    .card-surface {
-        @apply rounded-2xl;
-        background: var(--surface-elevated);
-        border: 1px solid var(--border-hover);
-        box-shadow: 0 24px 56px rgba(0, 0, 0, 0.5);
-    }
+    .section-title { @apply text-[10.5px] font-semibold uppercase; color: var(--text-faint); letter-spacing: .1em; }
+    .stat { @apply rounded-lg p-4; background: var(--surface-elevated); border: 1px solid var(--border); }
+    .display { font-family: "Space Grotesk", "Inter", sans-serif; letter-spacing: -0.03em; line-height: 1.15; }
+    .text-gradient { background: linear-gradient(135deg, #ffffff 0%, #c6d7ff 50%, #8babff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .floating-orb { @apply absolute rounded-full pointer-events-none opacity-0; }
+    .badge { @apply min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1; background: var(--primary); color: white; }
 
-    .card-subtle {
-        @apply rounded-lg;
-        background: transparent;
-        border: 1px solid var(--border);
-        transition: background 0.12s;
-    }
+    .input-control { @apply w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-200; background: var(--surface); border: 1px solid var(--border); color: var(--text-main); }
+    .input-control::placeholder { color: var(--text-muted); }
+    .input-control:focus { border-color: var(--primary); background: var(--surface-elevated); box-shadow: 0 0 0 3px var(--primary-glow), 0 1px 0 rgba(255, 255, 255, 0.05) inset; }
+    .input-control:disabled { opacity: .5; cursor: not-allowed; }
 
-    .card-subtle:hover {
-        background: var(--surface-hover);
-    }
-
-    /* ── INPUTS ──────────────────────────── */
-
-    .input {
-        @apply w-full rounded-lg px-3.5 py-2.5 text-sm outline-none transition-all duration-150;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        color: var(--text-main);
-    }
-
-    .input::placeholder {
-        color: var(--text-muted);
-    }
-
-    .input:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px var(--primary-glow);
-    }
-
-    /* ── BUTTONS ─────────────────────────── */
-
-    .btn-primary {
-        @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg text-white transition-all duration-150;
-        background: var(--primary);
-    }
-
-    .btn-primary:hover {
-        background: var(--primary-dark);
-    }
-
-    .btn-primary:active {
-        transform: scale(0.98);
-    }
-
-    .btn-secondary {
-        @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-150;
-        background: var(--surface-elevated);
-        border: 1px solid var(--border-hover);
-        color: var(--text-sub);
-    }
-
-    .btn-secondary:hover {
-        background: var(--surface-hover);
-        color: var(--text-main);
-    }
-
-    /* ── ICON BUTTON ─────────────────────── */
-
-    .icon-btn {
-        @apply flex items-center justify-center h-9 w-9 rounded-lg transition-all duration-150;
-        background: var(--surface-elevated);
-        border: 1px solid var(--border);
-        color: var(--text-sub);
-    }
-
-    .icon-btn:hover {
-        background: var(--surface-hover);
-        border-color: var(--border-hover);
-        color: var(--text-main);
-    }
-
-    /* ── SIDEBAR ITEM ────────────────────── */
-
-    .sidebar-item {
-        @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer;
-        color: var(--text-muted);
-    }
-
-    .sidebar-item:hover {
-        background: var(--surface-hover);
-        color: var(--text-sub);
-    }
-
-    .sidebar-item.active {
-        background: rgba(99, 102, 241, 0.12);
-        color: var(--primary-light);
-    }
-
-    /* ── TAGS ────────────────────────────── */
-
-    .tag {
-        @apply text-xs px-2.5 py-0.5 rounded-md font-medium inline-flex items-center gap-1 transition-colors duration-150;
-        background: var(--surface-hover);
-        border: 1px solid var(--border);
-        color: var(--text-muted);
-    }
-
-    .tag:hover {
-        border-color: rgba(99, 102, 241, 0.3);
-        color: var(--primary-light);
-    }
-
-    /* ── SECTION LABEL ───────────────────── */
-
-    .section-title {
-        @apply text-[10.5px] font-semibold uppercase;
-        color: var(--text-faint);
-        letter-spacing: 0.1em;
-    }
-
-    /* ── STAT CARD ──────────────────────── */
-
-    .stat {
-        @apply rounded-lg p-4;
-        background: var(--surface-elevated);
-        border: 1px solid var(--border);
-    }
-
-    /* ── TYPOGRAPHY ───────────────────── */
-
-    .display {
-        font-family: "Space Grotesk", "Inter", sans-serif;
-        letter-spacing: -0.03em;
-        line-height: 1.15;
-    }
-
-    .text-gradient {
-        background: linear-gradient(135deg, #ffffff 0%, #c7d2fe 55%, #a5b4fc 100%);
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-    }
-
-    /* ── FLOATING ORB (disabled) ─────────────── */
-
-    .floating-orb {
-        @apply absolute rounded-full pointer-events-none opacity-0;
-    }
-
-    /* ── BADGE ───────────────────────────── */
-
-    .badge {
-        @apply min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1;
-        background: var(--primary);
-        color: white;
-    }
-
-    /* ── ALIASES (legacy / auth pages) ──────────────────────── */
-
-    /* input-control → styled input */
-    .input-control {
-        @apply w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-200;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        color: var(--text-main);
-    }
-
-    .input-control::placeholder {
-        color: var(--text-muted);
-    }
-
-    .input-control:focus {
-        border-color: var(--primary);
-        background: var(--surface-elevated);
-        box-shadow: 0 0 0 3px var(--primary-glow), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
-    }
-
-    .input-control:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    /* display-title → Space Grotesk heading */
-    .display-title {
-        font-family: "Space Grotesk", "Manrope", sans-serif;
-        letter-spacing: -0.04em;
-        line-height: 1.1;
-    }
-
-    /* profile-name gradient — using CSS class so -webkit-background-clip works reliably */
-    .profile-name-gradient {
-        font-family: "Space Grotesk", sans-serif;
-        letter-spacing: -0.045em;
-        line-height: 1.15;
-        font-weight: 900;
-        font-size: 26px;
-        background: linear-gradient(135deg, #ffffff 0%, #c7d2fe 50%, #67e8f9 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        display: inline-block;
-    }
-
-    /* pill-tag → small label badge */
-    .pill-tag {
-        @apply inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium;
-        background: rgba(34, 211, 238, 0.10);
-        border: 1px solid rgba(34, 211, 238, 0.22);
-        color: #67e8f9;
-    }
-
+    .display-title { font-family: "Space Grotesk", "Manrope", sans-serif; letter-spacing: -0.04em; line-height: 1.1; }
+    .profile-name-gradient { font-family: "Space Grotesk", sans-serif; letter-spacing: -0.045em; line-height: 1.15; font-weight: 900; font-size: 26px; background: linear-gradient(135deg, #fff 0%, #d7e4ff 50%, #8dabff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; display: inline-block; }
+    .pill-tag { @apply inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium; background: #1f365e; border: 1px solid #355386; color: #c4d7ff; }
 }
-
-/* ════════════════════════════════════════════
-   UTILITIES
-════════════════════════════════════════════ */
 
 @layer utilities {
-
-    .text-balance {
-        text-wrap: balance;
-    }
-
-    .text-muted {
-        color: var(--text-muted);
-    }
-
-    .text-sub {
-        color: var(--text-sub);
-    }
-
-    .text-faint {
-        color: var(--text-faint);
-    }
-
-    /* Thin scrollbar */
-    .scrollbar-thin {
-        scrollbar-width: thin;
-        scrollbar-color: var(--surface-hover) transparent;
-    }
-
-    .scrollbar-thin::-webkit-scrollbar {
-        width: 4px;
-    }
-
-    .scrollbar-thin::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .scrollbar-thin::-webkit-scrollbar-thumb {
-        background: var(--surface-hover);
-        border-radius: 2px;
-    }
-
-    /* Standard scrollbar */
-    .scrollbar {
-        scrollbar-width: thin;
-    }
-
-    .scrollbar::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    .scrollbar::-webkit-scrollbar-thumb {
-        background: var(--surface-hover);
-        border-radius: 3px;
-    }
-
+    .text-balance { text-wrap: balance; }
+    .text-muted { color: var(--text-muted); }
+    .text-sub { color: var(--text-sub); }
+    .text-faint { color: var(--text-faint); }
+    .scrollbar-thin { scrollbar-width: thin; scrollbar-color: var(--surface-hover) transparent; }
+    .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--surface-hover); border-radius: 2px; }
+    .scrollbar { scrollbar-width: thin; }
+    .scrollbar::-webkit-scrollbar { width: 6px; }
+    .scrollbar::-webkit-scrollbar-thumb { background: var(--surface-hover); border-radius: 3px; }
 }
 
-/* ════════════════════════════════════════════
-   KEYFRAMES
-════════════════════════════════════════════ */
-
-@keyframes fade-up {
-    from {
-        opacity: 0;
-        transform: translateY(14px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes pulse-glow {
-
-    0%,
-    100% {
-        opacity: 0.65;
-    }
-
-    50% {
-        opacity: 1;
-    }
-}
-
-@keyframes shimmer {
-    from {
-        background-position: -200% center;
-    }
-
-    to {
-        background-position: 200% center;
-    }
-}
-
-@keyframes float {
-
-    0%,
-    100% {
-        transform: translateY(0px);
-    }
-
-    50% {
-        transform: translateY(-14px);
-    }
-}
-
-@keyframes spin-ring {
-    from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-@keyframes count-pop {
-    0% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.15);
-    }
-
-    100% {
-        transform: scale(1);
-    }
-}
+@keyframes fade-up { from { opacity: 0; transform: translateY(14px);} to { opacity: 1; transform: translateY(0);} }
+@keyframes pulse-glow { 0%,100%{opacity:.65;} 50%{opacity:1;} }
+@keyframes shimmer { from {background-position:-200% center;} to {background-position:200% center;} }
+@keyframes float { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-14px);} }
+@keyframes spin-ring { from {transform:rotate(0);} to {transform:rotate(360deg);} }
+@keyframes count-pop { 0%{transform:scale(1);} 50%{transform:scale(1.15);} 100%{transform:scale(1);} }

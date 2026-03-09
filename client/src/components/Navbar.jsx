@@ -116,8 +116,8 @@ export default function Navbar() {
             <button
                 className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all duration-200 shrink-0"
                 style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.07)",
+                    background: "#172844",
+                    border: "1px solid #355386",
                 }}
                 onClick={() => navigate(`/profile/${user?.username}`)}
             >
