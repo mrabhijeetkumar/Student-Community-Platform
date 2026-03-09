@@ -43,7 +43,7 @@ export default function CommunityFeedPanel({
                     </div>
 
                     <div className="space-y-3">
-                        <div className="rounded-[1.5rem] border border-white/15 bg-slate-950/20 px-4 py-4 backdrop-blur-md">
+                        <div className="rounded-[1.5rem] border border-[#355386] bg-[#172844] px-4 py-4">
                             <p className="text-[11px] uppercase tracking-[0.22em] text-white/60">Membership</p>
                             <p className="mt-2 text-sm text-slate-100">
                                 {community.isJoined ? "You are part of this community." : "Join this community to keep it in your network."}
@@ -53,7 +53,7 @@ export default function CommunityFeedPanel({
                             </button>
                         </div>
 
-                        <div className="rounded-[1.5rem] border border-white/15 bg-slate-950/20 px-4 py-4 backdrop-blur-md">
+                        <div className="rounded-[1.5rem] border border-[#355386] bg-[#172844] px-4 py-4">
                             <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-white/60">
                                 <UserGroupIcon className="h-4 w-4" />
                                 Community stats
@@ -80,14 +80,14 @@ export default function CommunityFeedPanel({
                         <h4 className="mt-1 text-lg font-semibold text-white">Discussion inside {community.name}</h4>
                     </div>
 
-                    <div className="inline-flex gap-2 rounded-2xl border border-white/10 bg-slate-950/40 p-1">
+                    <div className="inline-flex gap-2 rounded-2xl border border-[#355386] bg-[#172844] p-1">
                         {FEED_FILTERS.map(({ id, label, icon: Icon }) => (
                             <button
                                 key={id}
                                 type="button"
                                 onClick={() => onFilterChange(id)}
                                 className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[12px] font-semibold transition-all duration-200"
-                                style={activeFilter === id ? { background: "rgba(255,255,255,0.12)", color: "white" } : { color: "rgb(148 163 184)" }}
+                                style={activeFilter === id ? { background: "#27477a", color: "#eef4ff" } : { color: "#8ea4c9" }}
                             >
                                 <Icon className="h-4 w-4" />
                                 {label}
@@ -111,7 +111,7 @@ export default function CommunityFeedPanel({
                         <motion.div
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 px-6 py-10 text-center"
+                            className="rounded-[1.75rem] border border-[#355386] bg-[#172844] px-6 py-10 text-center"
                         >
                             <ChatBubbleLeftRightIcon className="mx-auto h-10 w-10 text-slate-500" />
                             <p className="mt-4 text-base font-semibold text-white">No posts in this community yet</p>

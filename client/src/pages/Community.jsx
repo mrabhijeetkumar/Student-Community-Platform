@@ -221,15 +221,15 @@ export default function Community() {
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                                <div className="rounded-[1.5rem] border border-white/15 bg-slate-950/20 px-4 py-4 backdrop-blur-md">
+                                <div className="rounded-[1.5rem] border border-[#355386] bg-[#172844] px-4 py-4">
                                     <p className="text-[11px] uppercase tracking-[0.22em] text-white/60">Members</p>
                                     <p className="mt-2 text-2xl font-bold text-white">{featuredCommunity.membersCount}</p>
                                 </div>
-                                <div className="rounded-[1.5rem] border border-white/15 bg-slate-950/20 px-4 py-4 backdrop-blur-md">
+                                <div className="rounded-[1.5rem] border border-[#355386] bg-[#172844] px-4 py-4">
                                     <p className="text-[11px] uppercase tracking-[0.22em] text-white/60">Posts</p>
                                     <p className="mt-2 text-2xl font-bold text-white">{featuredCommunity.postsCount}</p>
                                 </div>
-                                <div className="flex flex-col gap-3 rounded-[1.5rem] border border-white/15 bg-slate-950/20 px-4 py-4 backdrop-blur-md">
+                                <div className="flex flex-col gap-3 rounded-[1.5rem] border border-[#355386] bg-[#172844] px-4 py-4">
                                     <button type="button" className={featuredCommunity.isJoined ? "btn-secondary justify-center" : "btn-primary justify-center"} onClick={() => handleToggleMembership(featuredCommunity)}>
                                         {featuredCommunity.isJoined ? "Joined" : "Join community"}
                                     </button>
@@ -249,7 +249,7 @@ export default function Community() {
                     <motion.article key={community._id} whileHover={{ y: -3 }} className="card-surface overflow-hidden p-5">
                         <div className={`rounded-3xl border border-white/10 bg-gradient-to-br ${community.coverGradient} p-5`}>
                             <div className="flex items-center justify-between gap-3">
-                                <div className="rounded-2xl border border-white/15 bg-white/10 p-3 text-white">
+                                <div className="rounded-2xl border border-[#355386] bg-[#172844] p-3 text-white">
                                     <UserGroupIcon className="h-6 w-6" />
                                 </div>
                                 <span className="pill-tag">{community.membersCount} members</span>
