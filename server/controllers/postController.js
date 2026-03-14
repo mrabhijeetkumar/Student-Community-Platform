@@ -3,6 +3,7 @@ import Comment from "../models/Comment.js";
 import Community from "../models/Community.js";
 import { buildPostResponse, getLatestFeed, getFollowingFeed, getSavedFeed, getSmartFeed, getTrendingFeed } from "../services/feedService.js";
 import { createNotification } from "../services/notificationService.js";
+import { broadcastFeedEvent } from "../socket/socket.js";
 
 const hasUserVote = (entries = [], userId) => entries.some((entry) => entry.toString() === userId.toString());
 const removeUserVote = (entries = [], userId) => entries.filter((entry) => entry.toString() !== userId.toString());
@@ -75,7 +76,9 @@ export const createPost = async (req, res) => {
 
         await post.populate("author", "name username profilePhoto headline college");
         await post.populate("community", "name slug category coverGradient postsCount");
-        res.status(201).json(buildPostResponse(post));
+        const postData = buildPostResponse(post);
+        broadcastFeedEvent("post:new", postData);
+        res.status(201).json(postData);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -160,7 +163,9 @@ export const updatePost = async (req, res) => {
         await post.populate("author", "name username profilePhoto headline college");
         await post.populate("community", "name slug category coverGradient postsCount");
 
-        res.json(buildPostResponse(post));
+        const updatedData = buildPostResponse(post);
+        broadcastFeedEvent("post:updated", updatedData);
+        res.json(updatedData);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -187,6 +192,7 @@ export const deletePost = async (req, res) => {
             await Community.findByIdAndUpdate(post.community, { $inc: { postsCount: -1 } });
         }
 
+        broadcastFeedEvent("post:deleted", { postId: post._id.toString() });
         res.json({ message: "Post deleted" });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -216,7 +222,9 @@ export const toggleLike = async (req, res) => {
         await post.save();
         await post.populate("author", "name username profilePhoto headline college");
         await post.populate("community", "name slug category coverGradient postsCount");
-        res.json(buildPostResponse(post));
+        const likeData = buildPostResponse(post);
+        broadcastFeedEvent("post:updated", likeData);
+        res.json(likeData);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -253,7 +261,9 @@ export const voteOnPost = async (req, res) => {
         await post.populate("author", "name username profilePhoto headline college");
         await post.populate("community", "name slug category coverGradient postsCount");
 
-        res.json(buildPostResponse(post));
+        const voteData = buildPostResponse(post);
+        broadcastFeedEvent("post:updated", voteData);
+        res.json(voteData);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -279,7 +289,42 @@ export const toggleSave = async (req, res) => {
         await post.populate("author", "name username profilePhoto headline college");
         await post.populate("community", "name slug category coverGradient postsCount");
 
-        res.json(buildPostResponse(post));
+        const saveData = buildPostResponse(post);
+        broadcastFeedEvent("post:updated", saveData);
+        res.json(saveData);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const searchPosts = async (req, res) => {
+    try {
+        const q = req.query.q?.trim();
+        const tag = req.query.tag?.trim();
+        const limit = Math.min(Number(req.query.limit || 20), 40);
+
+        if (!q && !tag) {
+            return res.json([]);
+        }
+
+        const filter = {};
+        if (q) {
+            filter.$or = [
+                { content: { $regex: q, $options: "i" } },
+                { tags: { $regex: q, $options: "i" } }
+            ];
+        }
+        if (tag) {
+            filter.tags = { $regex: tag, $options: "i" };
+        }
+
+        const posts = await Post.find(filter)
+            .populate("author", "name username profilePhoto headline college")
+            .populate("community", "name slug category coverGradient postsCount")
+            .sort({ createdAt: -1 })
+            .limit(limit);
+
+        res.json(posts.map(buildPostResponse));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

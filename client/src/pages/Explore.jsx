@@ -1,13 +1,13 @@
 import { MagnifyingGlassIcon, SparklesIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Notification from "../components/Notification.jsx";
 import PostCard from "../components/PostCard.jsx";
 import PageTransition from "../components/ui/PageTransition.jsx";
 import LoadingCard from "../components/ui/LoadingCard.jsx";
-import PageHero from "../components/ui/PageHero.jsx";
 import { useAuth } from "../context/useAuth.js";
+import { connectSocket, disconnectSocket } from "../services/socket.js";
 import {
     followUser,
     getCommunities,
@@ -15,6 +15,7 @@ import {
     getUserDirectory,
     joinCommunity,
     leaveCommunity,
+    searchPosts,
     unfollowUser
 } from "../services/api.js";
 
@@ -36,9 +37,11 @@ export default function Explore() {
     const [directory, setDirectory] = useState([]);
     const [communities, setCommunities] = useState([]);
     const [trendingPosts, setTrendingPosts] = useState([]);
+    const [searchedPosts, setSearchedPosts] = useState([]);
     const [directoryLoading, setDirectoryLoading] = useState(true);
     const [communityLoading, setCommunityLoading] = useState(true);
     const [trendingLoading, setTrendingLoading] = useState(true);
+    const [searchPostsLoading, setSearchPostsLoading] = useState(false);
     const [feedback, setFeedback] = useState("");
     const [busyStudentUsername, setBusyStudentUsername] = useState("");
     const [busyCommunitySlug, setBusyCommunitySlug] = useState("");
@@ -127,6 +130,22 @@ export default function Explore() {
         };
     }, [deferredQuery, token]);
 
+    // Search posts when there is a query
+    useEffect(() => {
+        if (!token) return;
+        if (!deferredQuery) { setSearchedPosts([]); return; }
+
+        let isMounted = true;
+        setSearchPostsLoading(true);
+
+        searchPosts(deferredQuery, token, { limit: 10 })
+            .then((posts) => { if (isMounted) setSearchedPosts(Array.isArray(posts) ? posts : []); })
+            .catch(() => { if (isMounted) setSearchedPosts([]); })
+            .finally(() => { if (isMounted) setSearchPostsLoading(false); });
+
+        return () => { isMounted = false; };
+    }, [deferredQuery, token]); // eslint-disable-line react-hooks/exhaustive-deps
+
     useEffect(() => {
         if (!token) {
             return;
@@ -164,20 +183,46 @@ export default function Explore() {
         };
     }, [token]);
 
-    const insights = useMemo(() => ([
-        { label: "People", value: directory.length, detail: deferredQuery ? `Matches for \"${deferredQuery}\"` : "Student profiles" },
-        { label: "Communities", value: communities.length, detail: "Relevant circles" },
-        { label: "Trending", value: trendingPosts.length, detail: "High-signal posts" }
-    ]), [communities.length, deferredQuery, directory.length, trendingPosts.length]);
+    // Real-time socket updates
+    useEffect(() => {
+        if (!token) return;
+        const socket = connectSocket(token, "explore");
+        if (!socket) return;
+
+        const onPostUpdated = (data) => {
+            const p = data?.post ?? data;
+            if (!p?._id) return;
+            setTrendingPosts((prev) => prev.map((post) => post._id === p._id ? p : post));
+            setSearchedPosts((prev) => prev.map((post) => post._id === p._id ? p : post));
+        };
+
+        const onPostDeleted = ({ postId }) => {
+            setTrendingPosts((prev) => prev.filter((p) => p._id !== postId));
+            setSearchedPosts((prev) => prev.filter((p) => p._id !== postId));
+        };
+
+        socket.on("post:updated", onPostUpdated);
+        socket.on("post:deleted", onPostDeleted);
+
+        return () => {
+            socket.off("post:updated", onPostUpdated);
+            socket.off("post:deleted", onPostDeleted);
+            disconnectSocket("explore");
+        };
+    }, [token]);
 
     const handlePostUpdate = (updatedPost) => {
         setTrendingPosts((currentPosts) => currentPosts.map((post) => (
+            post._id === updatedPost._id ? updatedPost : post
+        )));
+        setSearchedPosts((currentPosts) => currentPosts.map((post) => (
             post._id === updatedPost._id ? updatedPost : post
         )));
     };
 
     const handlePostDelete = (postId) => {
         setTrendingPosts((currentPosts) => currentPosts.filter((post) => post._id !== postId));
+        setSearchedPosts((currentPosts) => currentPosts.filter((post) => post._id !== postId));
     };
 
     const handleStudentFollowToggle = async (student) => {
@@ -254,72 +299,63 @@ export default function Explore() {
     };
 
     return (
-        <PageTransition className="space-y-6">
-            <PageHero
-                eyebrow="Explore"
-                title="Find students, communities, and posts worth your attention."
-                description="Search the network by name, college, username, skill, or topic and jump straight into the people and circles that matter."
-                orbClassName="bg-sky-400/12"
-                badges={(
-                    <>
-                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-400/20 bg-brand-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-brand-100">
-                            <SparklesIcon className="h-4 w-4" />
-                            Real discovery
-                        </span>
-                        <span className="pill-tag">{directoryLoading ? "Searching..." : `${directory.length} people`}</span>
-                        <span className="pill-tag">{communityLoading ? "Loading communities..." : `${communities.length} communities`}</span>
-                    </>
-                )}
-                aside={(
-                    <div className="space-y-3">
-                        <div className="card-ghost flex items-center gap-3 px-4 py-3">
-                            <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
+        <PageTransition className="space-y-5">
+            {/* ── Header + Search ── */}
+            <div className="card p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
+                    <div className="flex-1 min-w-0">
+                        <p className="section-title mb-1">Explore</p>
+                        <h1 className="display-title text-[22px] font-bold" style={{ color: "var(--text-main)" }}>
+                            Find students &amp; communities
+                        </h1>
+                        <p className="text-[14px] mt-1" style={{ color: "var(--text-sub)" }}>
+                            Search by name, college, skill, or topic to discover who and what matters to you.
+                        </p>
+                    </div>
+
+                    <div className="flex-1 min-w-0 max-w-sm">
+                        <div className="relative">
+                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "var(--text-muted)" }} />
                             <input
-                                className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                                className="input pl-9"
                                 placeholder="Search by name, username, skill, or topic"
                                 value={query}
                                 onChange={(event) => setQuery(event.target.value)}
                             />
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                            {insights.map((item) => (
-                                <div key={item.label} className="stat-tile shadow-xl">
-                                    <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{item.label}</p>
-                                    <p className="display-title mt-2 text-2xl font-bold text-white">{item.value}</p>
-                                    <p className="mt-1 text-sm text-slate-400">{item.detail}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            >
-                <div className="card-ghost px-4 py-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                            <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Explore mode</p>
-                            <p className="mt-1 text-sm text-slate-300">This page is now powered by your live user directory, community index, and trending feed.</p>
-                        </div>
-                        <Link to="/communities" className="btn-secondary">
-                            Open communities
-                        </Link>
                     </div>
                 </div>
-            </PageHero>
+
+                <div className="flex flex-wrap items-center gap-2 mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+                    <span className="pill-tag flex items-center gap-1.5">
+                        <SparklesIcon className="h-3 w-3" />
+                        Real discovery
+                    </span>
+                    <span className="pill-tag">{directoryLoading ? "Searching..." : `${directory.length} people`}</span>
+                    <span className="pill-tag">{communityLoading ? "Loading..." : `${communities.length} communities`}</span>
+                    <div className="ml-auto">
+                        <Link to="/communities" className="btn-secondary py-1.5 px-3 text-xs">Browse communities</Link>
+                    </div>
+                </div>
+            </div>
 
             <Notification tone="warning" message={feedback} />
 
-            <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-                <div className="space-y-6">
-                    <section className="card-surface p-5">
+            <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+                <div className="space-y-5">
+                    {/* Students */}
+                    <section className="card p-5">
                         <div className="mb-4 flex items-center gap-3">
-                            <UserGroupIcon className="h-6 w-6 text-accent-300" />
+                            <div className="h-8 w-8 flex items-center justify-center rounded-xl" style={{ background: "var(--primary-subtle)" }}>
+                                <UserGroupIcon className="h-4 w-4" style={{ color: "var(--primary-light)" }} />
+                            </div>
                             <div>
-                                <h2 className="text-xl font-semibold text-white">Students</h2>
-                                <p className="text-sm text-slate-400">Discover people by skill set, college, or momentum</p>
+                                <h2 className="text-[15px] font-semibold" style={{ color: "var(--text-main)" }}>Students</h2>
+                                <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>Discover people by skill set, college, or momentum</p>
                             </div>
                         </div>
 
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <div className="grid gap-3 md:grid-cols-2">
                             {directoryLoading ? Array.from({ length: 4 }).map((_, index) => (
                                 <LoadingCard key={`directory-loading-${index}`} lines={4} />
                             )) : null}
@@ -327,12 +363,14 @@ export default function Explore() {
                             {!directoryLoading && directory.map((student) => (
                                 <motion.article
                                     key={student._id}
-                                    whileHover={{ y: -3 }}
-                                    className="card-ghost flex items-center gap-3 p-4"
+                                    whileHover={{ y: -2 }}
+                                    className="flex items-center gap-3 p-3 rounded-xl transition-colors"
+                                    style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}
                                 >
                                     <Link
                                         to={`/profile/${student.username}`}
-                                        className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 to-accent-400 text-sm font-bold text-white"
+                                        className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl text-sm font-bold text-white"
+                                        style={{ background: "var(--primary)" }}
                                     >
                                         {student.profilePhoto ? (
                                             <img src={student.profilePhoto} alt={student.name} className="h-full w-full object-cover" />
@@ -342,15 +380,15 @@ export default function Explore() {
                                     </Link>
 
                                     <div className="min-w-0 flex-1">
-                                        <Link to={`/profile/${student.username}`} className="block truncate text-sm font-semibold text-white transition hover:text-accent-300">
+                                        <Link to={`/profile/${student.username}`} className="block truncate text-[14px] font-semibold hover:underline" style={{ color: "var(--text-main)" }}>
                                             {student.name}
                                         </Link>
-                                        <p className="truncate text-xs text-slate-400">@{student.username}</p>
-                                        <p className="mt-1 truncate text-xs text-slate-500">{student.headline || student.college || "Student community member"}</p>
+                                        <p className="truncate text-[12px]" style={{ color: "var(--text-muted)" }}>@{student.username}</p>
+                                        <p className="mt-0.5 truncate text-[12px]" style={{ color: "var(--text-sub)" }}>{student.headline || student.college || "Student"}</p>
                                         {student.skills?.length ? (
-                                            <div className="mt-3 flex flex-wrap gap-2">
+                                            <div className="mt-2 flex flex-wrap gap-1">
                                                 {student.skills.slice(0, 3).map((skill) => (
-                                                    <span key={skill} className="pill-tag">{skill}</span>
+                                                    <span key={skill} className="pill-tag text-[12px]">{skill}</span>
                                                 ))}
                                             </div>
                                         ) : null}
@@ -358,72 +396,81 @@ export default function Explore() {
 
                                     <button
                                         type="button"
-                                        className={student.isFollowing ? "btn-secondary px-3 py-2 text-xs" : "btn-primary px-3 py-2 text-xs"}
+                                        className="text-[12px] font-semibold px-3 py-1.5 rounded-lg shrink-0 transition-colors"
+                                        style={student.isFollowing
+                                            ? { background: "var(--surface-hover)", color: "var(--text-sub)", border: "1px solid var(--border)" }
+                                            : { background: "var(--primary-subtle)", color: "var(--primary-light)", border: "1px solid rgba(99,102,241,0.25)" }}
                                         onClick={() => handleStudentFollowToggle(student)}
                                         disabled={busyStudentUsername === student.username}
                                     >
-                                        {busyStudentUsername === student.username ? "Updating..." : student.isFollowing ? "Following" : "Follow"}
+                                        {busyStudentUsername === student.username ? "…" : student.isFollowing ? "Following" : "Follow"}
                                     </button>
                                 </motion.article>
                             ))}
 
                             {!directoryLoading && directory.length === 0 ? (
-                                <div className="card-ghost p-5 text-sm text-slate-400 md:col-span-2">
+                                <div className="md:col-span-2 rounded-xl p-5 text-[14px]" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)", color: "var(--text-sub)" }}>
                                     No students matched this search yet. Try a different name, skill, or college keyword.
                                 </div>
                             ) : null}
                         </div>
                     </section>
 
-                    <section className="card-surface p-5">
+                    {/* Communities */}
+                    <section className="card p-5">
                         <div className="mb-4 flex items-center gap-3">
-                            <SparklesIcon className="h-6 w-6 text-brand-200" />
+                            <div className="h-8 w-8 flex items-center justify-center rounded-xl" style={{ background: "rgba(245,158,11,0.12)" }}>
+                                <SparklesIcon className="h-4 w-4" style={{ color: "var(--warning)" }} />
+                            </div>
                             <div>
-                                <h2 className="text-xl font-semibold text-white">Communities</h2>
-                                <p className="text-sm text-slate-400">Join active circles around shared goals and interests</p>
+                                <h2 className="text-[15px] font-semibold" style={{ color: "var(--text-main)" }}>Communities</h2>
+                                <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>Join active circles around shared goals and interests</p>
                             </div>
                         </div>
 
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <div className="grid gap-3 md:grid-cols-2">
                             {communityLoading ? Array.from({ length: 4 }).map((_, index) => (
                                 <LoadingCard key={`community-loading-${index}`} lines={4} />
                             )) : null}
 
                             {!communityLoading && communities.map((community) => (
-                                <motion.article key={community._id} whileHover={{ y: -3 }} className="card-ghost p-4">
+                                <motion.article key={community._id} whileHover={{ y: -2 }} className="rounded-xl p-4 transition-colors" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}>
                                     <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <p className="text-sm font-semibold text-white">{community.name}</p>
-                                            <p className="mt-1 text-xs text-accent-300">{community.category}</p>
+                                        <div className="min-w-0">
+                                            <p className="text-[14px] font-semibold truncate" style={{ color: "var(--text-main)" }}>{community.name}</p>
+                                            <p className="mt-0.5 text-[12px]" style={{ color: "var(--primary-light)" }}>{community.category}</p>
                                         </div>
-                                        <span className="pill-tag">{community.membersCount} members</span>
+                                        <span className="pill-tag shrink-0">{community.membersCount} members</span>
                                     </div>
-                                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-400">{community.description}</p>
+                                    <p className="mt-3 line-clamp-2 text-[14px] leading-relaxed" style={{ color: "var(--text-sub)" }}>{community.description}</p>
                                     {(community.tags || []).length ? (
-                                        <div className="mt-3 flex flex-wrap gap-2">
+                                        <div className="mt-2 flex flex-wrap gap-1">
                                             {community.tags.slice(0, 3).map((tag) => (
-                                                <span key={tag} className="pill-tag">#{tag}</span>
+                                                <span key={tag} className="pill-tag text-[12px]">#{tag}</span>
                                             ))}
                                         </div>
                                     ) : null}
-                                    <div className="mt-4 flex items-center justify-between gap-3">
-                                        <Link to="/communities" className="text-xs font-medium uppercase tracking-[0.18em] text-accent-300 transition hover:text-accent-200">
-                                            Open community
+                                    <div className="mt-3 flex items-center justify-between gap-3">
+                                        <Link to="/communities" className="text-[12px] font-semibold transition-colors" style={{ color: "var(--primary-light)" }}>
+                                            Open community →
                                         </Link>
                                         <button
                                             type="button"
-                                            className={community.isJoined ? "btn-secondary px-3 py-2 text-xs" : "btn-primary px-3 py-2 text-xs"}
+                                            className="text-[12px] font-semibold px-3 py-1.5 rounded-lg shrink-0 transition-colors"
+                                            style={community.isJoined
+                                                ? { background: "var(--surface-hover)", color: "var(--text-sub)", border: "1px solid var(--border)" }
+                                                : { background: "var(--primary-subtle)", color: "var(--primary-light)", border: "1px solid rgba(99,102,241,0.25)" }}
                                             onClick={() => handleCommunityToggle(community)}
                                             disabled={busyCommunitySlug === community.slug}
                                         >
-                                            {busyCommunitySlug === community.slug ? "Updating..." : community.isJoined ? "Joined" : "Join"}
+                                            {busyCommunitySlug === community.slug ? "…" : community.isJoined ? "Joined" : "Join"}
                                         </button>
                                     </div>
                                 </motion.article>
                             ))}
 
                             {!communityLoading && communities.length === 0 ? (
-                                <div className="card-ghost p-5 text-sm text-slate-400 md:col-span-2">
+                                <div className="md:col-span-2 rounded-xl p-5 text-[14px]" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)", color: "var(--text-sub)" }}>
                                     No communities matched this search yet. Try a broader topic or open the communities page.
                                 </div>
                             ) : null}
@@ -431,15 +478,48 @@ export default function Explore() {
                     </section>
                 </div>
 
-                <section className="space-y-5">
-                    <div className="card-surface p-5">
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <h2 className="text-xl font-semibold text-white">Trending posts</h2>
-                                <p className="mt-1 text-sm text-slate-400">What is currently driving the most engagement on the platform.</p>
+                {/* Post search results (only when query is active) */}
+                {deferredQuery ? (
+                    <section className="card p-5">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className="h-8 w-8 flex items-center justify-center rounded-xl" style={{ background: "var(--primary-subtle)" }}>
+                                <MagnifyingGlassIcon className="h-4 w-4" style={{ color: "var(--primary-light)" }} />
                             </div>
-                            <span className="pill-tag">Top 4</span>
+                            <div>
+                                <h2 className="text-[15px] font-semibold" style={{ color: "var(--text-main)" }}>Posts</h2>
+                                <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>Matching posts for &ldquo;{deferredQuery}&rdquo;</p>
+                            </div>
+                            {!searchPostsLoading && (
+                                <span className="pill-tag ml-auto">{searchedPosts.length} found</span>
+                            )}
                         </div>
+
+                        {searchPostsLoading ? (
+                            <div className="space-y-3">
+                                {Array.from({ length: 3 }).map((_, i) => <LoadingCard key={`sp-${i}`} lines={4} />)}
+                            </div>
+                        ) : searchedPosts.length > 0 ? (
+                            <div className="space-y-3">
+                                {searchedPosts.map((post) => (
+                                    <PostCard key={post._id} post={post} onUpdate={handlePostUpdate} onDelete={handlePostDelete} />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="rounded-xl p-5 text-[14px]" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)", color: "var(--text-sub)" }}>
+                                No posts found for this search.
+                            </div>
+                        )}
+                    </section>
+                ) : null}
+
+                {/* Trending posts */}
+                <section className="space-y-4">
+                    <div className="card p-4 flex items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-[15px] font-semibold" style={{ color: "var(--text-main)" }}>Trending posts</h2>
+                            <p className="text-[12px] mt-0.5" style={{ color: "var(--text-muted)" }}>Most engagement on the platform</p>
+                        </div>
+                        <span className="pill-tag">Top 4</span>
                     </div>
 
                     {trendingLoading ? Array.from({ length: 2 }).map((_, index) => (
@@ -451,7 +531,7 @@ export default function Explore() {
                     ))}
 
                     {!trendingLoading && trendingPosts.length === 0 ? (
-                        <div className="card-surface p-6 text-sm text-slate-400">
+                        <div className="card p-5 text-[14px]" style={{ color: "var(--text-sub)" }}>
                             No trending posts available right now.
                         </div>
                     ) : null}

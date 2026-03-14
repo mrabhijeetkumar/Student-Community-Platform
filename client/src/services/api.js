@@ -1,11 +1,21 @@
+import { API_BASE_URL as DEFAULT_API_BASE_URL } from "../config/api";
+
 function normalizeApiBaseUrl(url) {
-    return (url || "http://localhost:5050/api").replace(/\/$/, "");
+    return (url || DEFAULT_API_BASE_URL).replace(/\/api\/?$/, "").replace(/\/$/, "");
 }
 
 const API_BASE_URL = normalizeApiBaseUrl(
-    import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:5050/api"
+    import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL
 );
 const STORAGE_KEY = "student-community-auth";
+
+function withApiPrefix(path) {
+    if (path === "/api" || path.startsWith("/api/")) {
+        return path;
+    }
+
+    return `/api${path.startsWith("/") ? path : `/${path}`}`;
+}
 
 function getStoredToken() {
     if (typeof window === "undefined") {
@@ -30,7 +40,7 @@ async function request(path, options = {}) {
     const { headers = {}, ...restOptions } = options;
     const storedToken = getStoredToken();
 
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(`${API_BASE_URL}${withApiPrefix(path)}`, {
         ...restOptions,
         headers: {
             "Content-Type": "application/json",
@@ -85,6 +95,20 @@ export function loginWithGoogle(idToken) {
     return request("/auth/google", {
         method: "POST",
         body: JSON.stringify({ idToken })
+    });
+}
+
+export function forgotPassword(payload) {
+    return request("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify(payload)
+    });
+}
+
+export function resetPassword(payload) {
+    return request("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify(payload)
     });
 }
 
@@ -366,6 +390,110 @@ export function getAdminDashboard(token) {
     });
 }
 
+export function getAdminUsers(token, options = {}) {
+    const params = new URLSearchParams();
+    if (options.page) params.set("page", String(options.page));
+    if (options.limit) params.set("limit", String(options.limit));
+    if (options.q) params.set("q", options.q);
+    return request(`/dashboard/admin/users?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function getAdminPosts(token, options = {}) {
+    const params = new URLSearchParams();
+    if (options.page) params.set("page", String(options.page));
+    if (options.limit) params.set("limit", String(options.limit));
+    return request(`/dashboard/admin/posts?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function setUserRole(userId, role, token) {
+    return request(`/dashboard/admin/users/${userId}/role`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ role })
+    });
+}
+
+export function deleteAdminUser(userId, token) {
+    return request(`/dashboard/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function deleteAdminPost(postId, token) {
+    return request(`/dashboard/admin/posts/${postId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function getAdminComments(token, options = {}) {
+    const params = new URLSearchParams();
+    if (options.page) params.set("page", String(options.page));
+    if (options.limit) params.set("limit", String(options.limit));
+    if (options.q) params.set("q", options.q);
+    return request(`/dashboard/admin/comments?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function deleteAdminComment(commentId, token) {
+    return request(`/dashboard/admin/comments/${commentId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function getAdminActivity(token, options = {}) {
+    const params = new URLSearchParams();
+    if (options.limit) params.set("limit", String(options.limit));
+    return request(`/dashboard/admin/activity?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function toggleBanUser(userId, token) {
+    return request(`/dashboard/admin/users/${userId}/ban`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function getAdminCommunities(token, options = {}) {
+    const params = new URLSearchParams();
+    if (options.page) params.set("page", String(options.page));
+    if (options.limit) params.set("limit", String(options.limit));
+    if (options.q) params.set("q", options.q);
+    return request(`/dashboard/admin/communities?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function deleteAdminCommunity(communityId, token) {
+    return request(`/dashboard/admin/communities/${communityId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function toggleCommunityFeatured(communityId, token) {
+    return request(`/dashboard/admin/communities/${communityId}/featured`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function removeCommunityMember(communityId, userId, token) {
+    return request(`/dashboard/admin/communities/${communityId}/members/${userId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
 export function getConversations(token) {
     return request("/messages/conversations", {
         headers: {
@@ -389,5 +517,41 @@ export function sendMessage(userId, content, token) {
             Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ content })
+    });
+}
+
+export function searchPosts(query, token, options = {}) {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (options.tag) params.set("tag", options.tag);
+    if (options.limit) params.set("limit", String(options.limit));
+    return request(`/posts/search?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function getCommunityBySlug(slug, token) {
+    return request(`/communities/${slug}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function getUserFollowers(username, token) {
+    return request(`/users/profile/${username}/followers`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function getUserFollowing(username, token) {
+    return request(`/users/profile/${username}/following`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function changePassword(payload, token) {
+    return request("/users/change-password", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
     });
 }

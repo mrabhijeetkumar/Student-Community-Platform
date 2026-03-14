@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
+import { getAllowedOrigins } from "../config/security.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 
@@ -81,12 +82,8 @@ async function markDeliveredMessages(userId) {
 export default function initializeSocket(server) {
     io = new Server(server, {
         cors: {
-            origin: [
-                process.env.CLIENT_URL || "http://localhost:5173",
-                "http://localhost:5174",
-                "http://127.0.0.1:5173"
-            ],
-            methods: ["GET", "POST", "PUT"]
+            origin: getAllowedOrigins(),
+            methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
         }
     });
 
@@ -201,4 +198,9 @@ export function emitToUser(userId, eventName, payload) {
     }
 
     io.to(`user:${userId}`).emit(eventName, payload);
+}
+
+export function broadcastFeedEvent(eventName, payload) {
+    if (!io) return;
+    io.emit(eventName, payload);
 }

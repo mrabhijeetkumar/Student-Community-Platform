@@ -78,13 +78,25 @@ export function NotificationProvider({ children }) {
             return;
         }
 
-        const unsubscribe = subscribeToSocketEvent("notification:new", (notification) => {
+        const unsubscribeNew = subscribeToSocketEvent("notification:new", (notification) => {
             setNotifications((currentItems) => mergeNotifications(currentItems, notification));
             setUnreadCount((currentCount) => currentCount + (notification?.isRead ? 0 : 1));
         });
 
+        // Re-sync count from server after any reconnect (handles offline/tab-switch gaps)
+        const handleReconnect = () => {
+            getNotifications(token)
+                .then((response) => {
+                    setNotifications(response.items ?? []);
+                    setUnreadCount(response.unreadCount ?? 0);
+                })
+                .catch(() => { });
+        };
+        socket.on("connect", handleReconnect);
+
         return () => {
-            unsubscribe();
+            unsubscribeNew();
+            socket.off("connect", handleReconnect);
             disconnectSocket("notifications");
         };
     }, [isAuthenticated, token]);

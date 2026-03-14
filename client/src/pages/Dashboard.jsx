@@ -1,123 +1,145 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Bookmark, Rss, Sparkles, TrendingUp, Users, UserPlus, FileText, Heart, MessagesSquare, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { Users } from "lucide-react";
+import { motion } from "framer-motion";
 import CreatePost from "../components/CreatePost.jsx";
 import PostCard from "../components/PostCard.jsx";
 import { useAuth } from "../context/useAuth.js";
-import {
-    getCommunities,
-    getMyDashboard,
-    getPosts,
-    getSuggestedUsers,
-    joinCommunity,
-    leaveCommunity,
-    followUser,
-    unfollowUser
-} from "../services/api.js";
-import { connectSocket, disconnectSocket } from "../services/socket.js";
+import { getPosts, getMyDashboard, getSuggestedUsers, followUser, unfollowUser } from "../services/api.js";
+import { connectSocket, disconnectSocket, subscribeToSocketEvent } from "../services/socket.js";
 import LoadingCard from "../components/ui/LoadingCard.jsx";
 
-function getInitials(name) {
-    return (name || "Student")
-        .split(" ")
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-}
+const FEED_TABS = [
+    { id: "latest", label: "Latest", Icon: Rss },
+    { id: "trending", label: "Trending", Icon: TrendingUp },
+    { id: "following", label: "Following", Icon: Users },
+    { id: "saved", label: "Saved", Icon: Bookmark },
+];
 
 export default function Dashboard() {
+    const { token, user } = useAuth();
     const navigate = useNavigate();
-    const { user, token } = useAuth();
 
-    const [communities, setCommunities] = useState([]);
+    const [feedType, setFeedType] = useState("latest");
+    const feedTypeRef = useRef("latest");
+    const setFeedTypeSync = useCallback((type) => {
+        feedTypeRef.current = type;
+        setFeedType(type);
+    }, []);
     const [recentFeedPosts, setRecentFeedPosts] = useState([]);
-    const [suggestedStudents, setSuggestedStudents] = useState([]);
-    const [overviewStats, setOverviewStats] = useState({
-        totalPosts: 0,
-        totalFollowers: 0
-    });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [busyCommunitySlug, setBusyCommunitySlug] = useState("");
-    const [busyStudentUsername, setBusyStudentUsername] = useState("");
     const composerSectionRef = useRef(null);
+    const [dashStats, setDashStats] = useState(null);
+    const [suggestions, setSuggestions] = useState([]);
+    const [followingSet, setFollowingSet] = useState(new Set());
 
-    const loadDashboard = async ({ showLoading = true } = {}) => {
-        if (!token) {
-            return;
-        }
-
-        if (showLoading) {
-            setLoading(true);
-            setError("");
-        }
-
+    const loadDashboard = async ({ showLoading = true, type } = {}) => {
+        if (!token) return;
+        if (showLoading) { setLoading(true); setError(""); }
         try {
-            const [communityItems, postItems, suggestedUsers, dashboardData] = await Promise.all([
-                getCommunities(token, "", { featuredOnly: true }),
-                getPosts("latest", token, { limit: 12 }),
-                getSuggestedUsers(token),
-                getMyDashboard(token)
-            ]);
-
+            const postItems = await getPosts(type || feedType, token, { limit: 15 });
             const normalizedPosts = Array.isArray(postItems) ? postItems : (postItems?.posts ?? []);
-
-            setCommunities(Array.isArray(communityItems) ? communityItems.slice(0, 4) : []);
             setRecentFeedPosts(normalizedPosts);
-            setSuggestedStudents(Array.isArray(suggestedUsers) ? suggestedUsers.slice(0, 4) : []);
-            setOverviewStats({
-                totalPosts: dashboardData?.stats?.totalPosts ?? 0,
-                totalFollowers: dashboardData?.stats?.totalFollowers ?? 0
-            });
         } catch (err) {
-            if (showLoading) {
-                setError(err.message || "Failed to load dashboard");
-            }
+            if (showLoading) setError(err.message || "Failed to load feed");
         } finally {
-            if (showLoading) {
-                setLoading(false);
-            }
+            if (showLoading) setLoading(false);
         }
     };
 
+    // Reload when feed type changes
     useEffect(() => {
-        loadDashboard({ showLoading: true }).catch(() => undefined);
-    }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+        loadDashboard({ showLoading: true, type: feedType }).catch(() => undefined);
+    }, [token, feedType]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Load dashboard stats & suggestions once
     useEffect(() => {
-        if (!token || !user?._id) {
-            return;
+        if (!token) return;
+        getMyDashboard(token).then(setDashStats).catch(() => { });
+        getSuggestedUsers(token).then((data) => {
+            const list = Array.isArray(data) ? data : (data?.users ?? []);
+            setSuggestions(list.slice(0, 5));
+        }).catch(() => { });
+    }, [token]);
+
+    const handleToggleFollow = async (targetUser) => {
+        if (!token) return;
+        const isFollowing = followingSet.has(targetUser._id);
+        setFollowingSet((prev) => {
+            const next = new Set(prev);
+            if (isFollowing) next.delete(targetUser._id); else next.add(targetUser._id);
+            return next;
+        });
+        try {
+            if (isFollowing) await unfollowUser(targetUser.username, token);
+            else await followUser(targetUser.username, token);
+        } catch {
+            setFollowingSet((prev) => {
+                const next = new Set(prev);
+                if (isFollowing) next.add(targetUser._id); else next.delete(targetUser._id);
+                return next;
+            });
         }
+    };
+
+    // Socket: real-time post events
+    useEffect(() => {
+        if (!token || !user?._id) return;
 
         const socket = connectSocket(token, "dashboard");
+        if (!socket) return;
 
-        if (!socket) {
-            return;
-        }
+        const onPostNew = (post) => {
+            // Use ref to read current feedType without closure staleness
+            if (feedTypeRef.current === "latest") {
+                setRecentFeedPosts((prev) => [post, ...prev.filter((p) => p._id !== post._id)]);
+            }
+        };
+
+        const onPostUpdated = (post) => {
+            setRecentFeedPosts((prev) => prev.map((p) => (p._id === post._id ? post : p)));
+        };
+
+        const onPostDeleted = ({ postId }) => {
+            setRecentFeedPosts((prev) => prev.filter((p) => p._id !== postId));
+        };
+
+        const onCommentNew = (data) => {
+            if (typeof data?.commentsCount === "number") {
+                setRecentFeedPosts((prev) => prev.map((p) => p._id === data.postId ? { ...p, commentsCount: data.commentsCount } : p));
+            }
+        };
+
+        const onCommentDeleted = (data) => {
+            setRecentFeedPosts((prev) => prev.map((p) => p._id === data?.postId ? { ...p, commentsCount: Math.max(0, (p.commentsCount ?? 1) - 1) } : p));
+        };
+
+        socket.on("post:new", onPostNew);
+        socket.on("post:updated", onPostUpdated);
+        socket.on("post:deleted", onPostDeleted);
+        socket.on("comment:new", onCommentNew);
+        socket.on("comment:deleted", onCommentDeleted);
 
         return () => {
+            socket.off("post:new", onPostNew);
+            socket.off("post:updated", onPostUpdated);
+            socket.off("post:deleted", onPostDeleted);
+            socket.off("comment:new", onCommentNew);
+            socket.off("comment:deleted", onCommentDeleted);
             disconnectSocket("dashboard");
         };
     }, [token, user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Background refresh every 60s when tab is visible
     useEffect(() => {
-        if (!token) {
-            return;
-        }
-
+        if (!token) return;
         const intervalId = window.setInterval(() => {
-            if (document.visibilityState !== "visible") {
-                return;
-            }
-
+            if (document.visibilityState !== "visible") return;
             loadDashboard({ showLoading: false }).catch(() => undefined);
-        }, 45000);
-
-        return () => {
-            window.clearInterval(intervalId);
-        };
-    }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+        }, 60000);
+        return () => window.clearInterval(intervalId);
+    }, [token, feedType]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handlePostUpdate = (updatedPost) => {
         setRecentFeedPosts((currentPosts) => currentPosts.map((post) => (
@@ -127,109 +149,97 @@ export default function Dashboard() {
 
     const handlePostDelete = (postId) => {
         setRecentFeedPosts((currentPosts) => currentPosts.filter((post) => post._id !== postId));
-        setOverviewStats((currentStats) => ({
-            ...currentStats,
-            totalPosts: Math.max(0, currentStats.totalPosts - 1)
-        }));
     };
 
     const handleCreatePost = (newPost) => {
         if (!newPost?._id) return;
         setRecentFeedPosts((currentPosts) => [newPost, ...currentPosts.filter((post) => post._id !== newPost._id)]);
-        setOverviewStats((currentStats) => ({ ...currentStats, totalPosts: currentStats.totalPosts + 1 }));
     };
 
-    const handleCommunityToggle = async (community) => {
-        if (!community?.slug || busyCommunitySlug) {
-            return;
-        }
-
-        setBusyCommunitySlug(community.slug);
-        const previousCommunity = community;
-
-        setCommunities((currentCommunities) => currentCommunities.map((item) => {
-            if (item.slug !== community.slug) {
-                return item;
-            }
-
-            return {
-                ...item,
-                isJoined: !item.isJoined,
-                membersCount: Math.max(0, (item.membersCount || 0) + (item.isJoined ? -1 : 1))
-            };
-        }));
-
-        try {
-            const updatedCommunity = community.isJoined
-                ? await leaveCommunity(community.slug, token)
-                : await joinCommunity(community.slug, token);
-
-            setCommunities((currentCommunities) => currentCommunities.map((item) => (
-                item._id === updatedCommunity._id ? { ...item, ...updatedCommunity } : item
-            )));
-        } catch {
-            setCommunities((currentCommunities) => currentCommunities.map((item) => (
-                item.slug === previousCommunity.slug ? previousCommunity : item
-            )));
-        } finally {
-            setBusyCommunitySlug("");
-        }
+    const emptyMessages = {
+        latest: { title: "Your feed is empty", sub: "Create the first post or follow students to see their updates here." },
+        trending: { title: "Nothing trending yet", sub: "Trending posts appear once your community starts engaging." },
+        following: { title: "No posts from people you follow", sub: "Follow students to see their posts in this feed." },
+        saved: { title: "No saved posts", sub: "Tap the bookmark icon on any post to save it here." },
     };
 
-    const handleStudentFollowToggle = async (student) => {
-        if (!student?.username || busyStudentUsername) {
-            return;
-        }
-
-        setBusyStudentUsername(student.username);
-        const optimisticDelta = student.isFollowing ? -1 : 1;
-        const optimisticStudent = {
-            ...student,
-            isFollowing: !student.isFollowing,
-            stats: {
-                ...(student.stats || {}),
-                followers: Math.max(0, (student.stats?.followers ?? 0) + optimisticDelta)
-            }
-        };
-
-        setSuggestedStudents((currentStudents) => currentStudents.map((item) => (
-            item._id === student._id ? optimisticStudent : item
-        )));
-
-        try {
-            const updatedStudent = student.isFollowing
-                ? await unfollowUser(student.username, token)
-                : await followUser(student.username, token);
-
-            setSuggestedStudents((currentStudents) => currentStudents.map((item) => (
-                item._id === updatedStudent._id ? updatedStudent : item
-            )));
-        } catch {
-            setSuggestedStudents((currentStudents) => currentStudents.map((item) => (
-                item._id === student._id ? student : item
-            )));
-        } finally {
-            setBusyStudentUsername("");
-        }
-    };
+    const empty = emptyMessages[feedType] || emptyMessages.latest;
 
     return (
-        <div className="mx-auto max-w-4xl">
-
+        <div className="mx-auto max-w-[960px]">
             {error ? (
-                <div className="rounded-lg px-4 py-3 mb-4 text-[13px]" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.18)", color: "#fca5a5" }}>
+                <div className="rounded-lg px-4 py-3 mb-4 text-[14px]" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.18)", color: "#dc2626" }}>
                     {error}
                 </div>
             ) : null}
 
-            <div className="grid gap-4 xl:grid-cols-[1fr_272px] items-start">
+            {/* ═══ WELCOME STATS STRIP ═══ */}
+            {dashStats?.stats && (
+                <motion.div
+                    initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+                    className="card mb-3 px-5 py-4"
+                >
+                    <div className="flex items-center gap-4 flex-wrap">
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[16px] font-bold" style={{ color: "var(--text-main)" }}>
+                                Welcome back, {user?.name?.split(" ")[0] || "Student"} 👋
+                            </p>
+                            <p className="text-[13px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                                Here's your activity overview
+                            </p>
+                        </div>
+                        <div className="flex gap-3 flex-wrap">
+                            {[
+                                { icon: FileText, label: "Posts", value: dashStats.stats.totalPosts, color: "var(--primary)" },
+                                { icon: Users, label: "Followers", value: dashStats.stats.totalFollowers, color: "#0f8e72" },
+                                { icon: Heart, label: "Saved", value: dashStats.stats.totalSavedPosts, color: "#d96a1c" },
+                                { icon: MessagesSquare, label: "Communities", value: dashStats.stats.joinedCommunities, color: "#10b981" },
+                            ].map(({ icon: Icon, label, value, color }) => (
+                                <div key={label} className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}>
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${color}15` }}>
+                                        <Icon size={14} style={{ color }} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[16px] font-black leading-none" style={{ color: "var(--text-main)" }}>{value}</p>
+                                        <p className="text-[11px] font-medium" style={{ color: "var(--text-muted)" }}>{label}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </motion.div>
+            )}
 
-                {/* ── Left: Main Feed ── */}
-                <div className="space-y-3 min-w-0">
-
+            <div className="flex gap-4">
+                {/* ═══ MAIN FEED COLUMN ═══ */}
+                <div className="flex-1 min-w-0 max-w-[680px] space-y-3">
                     {/* Compose */}
                     <div className="card" ref={composerSectionRef}>
                         <CreatePost onPost={handleCreatePost} />
+                    </div>
+
+                    {/* Feed type tabs */}
+                    <div className="card px-3 py-2">
+                        <div className="flex items-center gap-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+                            {FEED_TABS.map(({ id, label, Icon }) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setFeedTypeSync(id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-colors shrink-0"
+                                    style={feedType === id
+                                        ? { background: "var(--primary-subtle)", color: "var(--primary-light)", border: "1px solid rgba(99,102,241,0.2)" }
+                                        : { background: "transparent", color: "var(--text-muted)", border: "1px solid transparent" }}
+                                >
+                                    <Icon size={13} />
+                                    {label}
+                                </button>
+                            ))}
+                            <div className="ml-auto shrink-0 flex items-center gap-1 pl-2" style={{ borderLeft: "1px solid var(--border)" }}>
+                                <Sparkles size={12} style={{ color: "var(--text-muted)" }} />
+                                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>Smart feed</span>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Posts */}
@@ -243,132 +253,114 @@ export default function Dashboard() {
                         ))}
 
                         {!recentFeedPosts.length && !loading ? (
-                            <div className="card text-center py-14" style={{ color: "var(--text-muted)" }}>
-                                <p className="text-[14px] font-medium mb-1 text-white">No posts yet</p>
-                                <p className="text-[13px]">Be the first to share something with the community!</p>
+                            <div className="card text-center py-16">
+                                <div
+                                    className="w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+                                    style={{ background: "var(--primary-subtle)" }}
+                                >
+                                    <Rss size={24} style={{ color: "var(--primary)" }} />
+                                </div>
+                                <p className="text-[15px] font-semibold mb-1.5" style={{ color: "var(--text-main)" }}>
+                                    {empty.title}
+                                </p>
+                                <p className="text-[14px]" style={{ color: "var(--text-muted)" }}>
+                                    {empty.sub}
+                                </p>
                             </div>
                         ) : null}
                     </div>
                 </div>
 
-                {/* ── Right: Compact Sidebar ── */}
-                <div className="hidden xl:flex flex-col gap-4 sticky top-4">
-
-                    {/* User card + mini stats */}
-                    <div className="card p-4">
-                        <div
-                            className="flex items-center gap-3 pb-3 mb-3 cursor-pointer"
-                            style={{ borderBottom: "1px solid var(--border)" }}
-                            onClick={() => navigate(`/profile/${user?.username}`)}
+                {/* ═══ RIGHT SIDEBAR ═══ */}
+                <div className="hidden lg:block w-[260px] shrink-0 space-y-3">
+                    {/* People You May Know */}
+                    {suggestions.length > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}
+                            className="card p-4"
                         >
-                            <img
-                                src={user?.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "U")}&background=6366f1&color=fff&bold=true&size=64`}
-                                className="w-10 h-10 rounded-full object-cover ring-2 ring-indigo-500/30 shrink-0"
-                            />
-                            <div className="min-w-0">
-                                <p className="text-[13.5px] font-semibold text-white leading-tight truncate">{user?.name || "Student"}</p>
-                                <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>@{user?.username || "you"}</p>
+                            <p className="text-[13px] font-bold mb-3 flex items-center gap-1.5" style={{ color: "var(--text-sub)" }}>
+                                <UserPlus size={13} /> People You May Know
+                            </p>
+                            <div className="space-y-2.5">
+                                {suggestions.map((s) => {
+                                    const isFollowing = followingSet.has(s._id);
+                                    const avatar = s.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name || "U")}&background=0a66c2&color=fff&bold=true&size=64`;
+                                    return (
+                                        <div key={s._id} className="flex items-center gap-2.5">
+                                            <img
+                                                src={avatar}
+                                                className="w-9 h-9 rounded-full object-cover shrink-0 cursor-pointer"
+                                                alt={s.name}
+                                                onClick={() => navigate(`/profile/${s.username}`)}
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <Link to={`/profile/${s.username}`} className="text-[13px] font-semibold leading-tight truncate block" style={{ color: "var(--text-main)", textDecoration: "none" }}>
+                                                    {s.name}
+                                                </Link>
+                                                <p className="text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
+                                                    {s.headline || `@${s.username}`}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => handleToggleFollow(s)}
+                                                className="shrink-0 text-[12px] font-semibold px-2.5 py-1 rounded-full transition-all"
+                                                style={isFollowing
+                                                    ? { background: "var(--surface-soft)", color: "var(--text-muted)", border: "1px solid var(--border)" }
+                                                    : { background: "var(--primary-subtle)", color: "var(--primary)", border: "1px solid rgba(10,102,194,0.2)" }
+                                                }
+                                            >
+                                                {isFollowing ? "Following" : "Follow"}
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="rounded-lg p-3 text-center cursor-pointer hover:bg-zinc-700/30 transition-colors" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-                                onClick={() => navigate(`/profile/${user?.username}`)}>
-                                <p className="text-[20px] font-bold text-white leading-tight">{overviewStats.totalPosts}</p>
-                                <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>Posts</p>
-                            </div>
-                            <div className="rounded-lg p-3 text-center cursor-pointer hover:bg-zinc-700/30 transition-colors" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-                                onClick={() => navigate(`/profile/${user?.username}`)}>
-                                <p className="text-[20px] font-bold text-white leading-tight">{overviewStats.totalFollowers}</p>
-                                <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>Followers</p>
-                            </div>
+                            <button
+                                onClick={() => navigate("/explore")}
+                                className="mt-3 w-full text-[12px] font-semibold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1"
+                                style={{ color: "var(--primary)", background: "transparent" }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = "var(--primary-subtle)"}
+                                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                            >
+                                Discover more <ArrowRight size={12} />
+                            </button>
+                        </motion.div>
+                    )}
+
+                    {/* Quick Links */}
+                    <div className="card p-4">
+                        <p className="text-[13px] font-bold mb-2" style={{ color: "var(--text-sub)" }}>Quick Links</p>
+                        <div className="space-y-1">
+                            {[
+                                { label: "Explore Communities", to: "/communities", icon: Users },
+                                { label: "Saved Posts", action: () => setFeedTypeSync("saved"), icon: Bookmark },
+                                { label: "Your Profile", to: `/profile/${user?.username}`, icon: UserPlus },
+                            ].map(({ label, to, action, icon: Icon }) => (
+                                <button
+                                    key={label}
+                                    onClick={() => { if (action) action(); else if (to) navigate(to); }}
+                                    className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-[13px] font-medium transition-colors text-left"
+                                    style={{ color: "var(--text-sub)" }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--surface-hover)"}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                                >
+                                    <Icon size={13} style={{ color: "var(--text-muted)" }} />
+                                    {label}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Suggested students */}
-                    {(loading || suggestedStudents.length > 0) && (
-                        <div className="card p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-[13px] font-semibold text-white">Suggested for you</p>
-                                <Link to="/explore" className="text-[11.5px] font-medium" style={{ color: "var(--primary-light)" }}>See all</Link>
-                            </div>
-
-                            {loading && !suggestedStudents.length
-                                ? Array.from({ length: 3 }).map((_, i) => <LoadingCard key={`sl-${i}`} lines={2} />)
-                                : null}
-
-                            <div className="space-y-3">
-                                {suggestedStudents.slice(0, 4).map((student) => (
-                                    <div key={student._id} className="flex items-center gap-3">
-                                        <div className="h-9 w-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center text-[11px] font-bold text-white"
-                                            style={{ background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)" }}>
-                                            {student.profilePhoto
-                                                ? <img src={student.profilePhoto} className="h-full w-full object-cover" alt="" />
-                                                : getInitials(student.name)}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <Link to={`/profile/${student.username}`}
-                                                className="block text-[12.5px] font-semibold text-white truncate hover:underline">
-                                                {student.name}
-                                            </Link>
-                                            <p className="text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
-                                                {student.college || student.headline || "Student"}
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={() => handleStudentFollowToggle(student)}
-                                            disabled={busyStudentUsername === student.username}
-                                            className="text-[11.5px] font-semibold px-3 py-1 rounded-lg transition-colors shrink-0"
-                                            style={student.isFollowing
-                                                ? { background: "var(--surface-hover)", color: "var(--text-sub)", border: "1px solid var(--border)" }
-                                                : { background: "rgba(99,102,241,0.12)", color: "var(--primary-light)", border: "1px solid rgba(99,102,241,0.2)" }}
-                                        >
-                                            {busyStudentUsername === student.username ? "…" : student.isFollowing ? "Following" : "Follow"}
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Communities */}
-                    {(loading || communities.length > 0) && (
-                        <div className="card p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-[13px] font-semibold text-white">Communities</p>
-                                <Link to="/communities" className="text-[11.5px] font-medium" style={{ color: "var(--primary-light)" }}>Browse all</Link>
-                            </div>
-
-                            {loading && !communities.length
-                                ? Array.from({ length: 3 }).map((_, i) => <LoadingCard key={`cl-${i}`} lines={2} />)
-                                : null}
-
-                            <div className="space-y-1">
-                                {communities.slice(0, 5).map((community) => (
-                                    <div key={community._id}
-                                        className="flex items-center justify-between gap-2 px-2 py-2.5 rounded-lg transition-colors hover:bg-zinc-700/30 cursor-pointer"
-                                        onClick={() => navigate("/communities")}>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-[12.5px] font-medium text-white truncate">{community.name}</p>
-                                            <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{(community.membersCount || 0).toLocaleString()} members</p>
-                                        </div>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleCommunityToggle(community); }}
-                                            disabled={busyCommunitySlug === community.slug}
-                                            className="text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors shrink-0"
-                                            style={community.isJoined
-                                                ? { background: "var(--surface-hover)", color: "var(--text-sub)", border: "1px solid var(--border)" }
-                                                : { background: "rgba(99,102,241,0.12)", color: "var(--primary-light)", border: "1px solid rgba(99,102,241,0.2)" }}
-                                        >
-                                            {busyCommunitySlug === community.slug ? "…" : community.isJoined ? "Joined" : "Join"}
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
+                    {/* Footer */}
+                    <div className="px-2 py-2">
+                        <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-faint)" }}>
+                            StudentHub Community Platform &middot; Built for students, by students.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
+

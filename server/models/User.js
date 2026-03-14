@@ -20,7 +20,6 @@ const userSchema = new mongoose.Schema(
         email: {
             type: String,
             required: true,
-            unique: true,
             lowercase: true,
             trim: true
         },
@@ -127,10 +126,22 @@ const userSchema = new mongoose.Schema(
         following: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
-        }]
+        }],
+
+        isBanned: {
+            type: Boolean,
+            default: false
+        },
+
+        bannedAt: {
+            type: Date,
+            default: null
+        }
 
     },
     { timestamps: true }
 );
+
+userSchema.index({ email: 1, role: 1 }, { unique: true });
 
 export default mongoose.model("User", userSchema);

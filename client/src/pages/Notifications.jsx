@@ -6,9 +6,9 @@ import { useNotifications } from "../context/useNotifications.js";
 
 const cfg = {
     like: { icon: Heart, color: "#f43f5e", bg: "rgba(244,63,94,0.12)", verb: "liked your post" },
-    comment: { icon: MessageCircle, color: "#6366f1", bg: "rgba(99,102,241,0.12)", verb: "commented on your post" },
-    follow: { icon: UserPlus, color: "#22d3ee", bg: "rgba(34,211,238,0.12)", verb: "started following you" },
-    message: { icon: MessageCircle, color: "#a78bfa", bg: "rgba(167,139,250,0.12)", verb: "sent you a message" },
+    comment: { icon: MessageCircle, color: "#1473e6", bg: "rgba(20,115,230,0.12)", verb: "commented on your post" },
+    follow: { icon: UserPlus, color: "#0f8e72", bg: "rgba(15,142,114,0.12)", verb: "started following you" },
+    message: { icon: MessageCircle, color: "#1688d8", bg: "rgba(22,136,216,0.12)", verb: "sent you a message" },
     system: { icon: Bell, color: "#f59e0b", bg: "rgba(245,158,11,0.12)", verb: "sent a notification" },
 };
 
@@ -70,7 +70,7 @@ export default function Notifications() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-[22px] font-black" style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: "-0.04em" }}>
+                    <h2 className="text-[22px] font-black display-title">
                         Notifications
                     </h2>
                     {unreadCount > 0 && (
@@ -82,8 +82,8 @@ export default function Notifications() {
                 {unreadCount > 0 && (
                     <button
                         onClick={markAllAsRead}
-                        className="flex items-center gap-1.5 text-[12.5px] px-3 py-2 rounded-xl transition-all duration-200"
-                        style={{ color: "var(--primary-light)", background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.22)" }}
+                        className="flex items-center gap-1.5 text-[14px] px-3 py-2 rounded-xl transition-all duration-200"
+                        style={{ color: "var(--primary-light)", background: "rgba(20,115,230,0.1)", border: "1px solid rgba(20,115,230,0.22)" }}
                     >
                         <Check size={12} /> Mark all read
                     </button>
@@ -99,13 +99,13 @@ export default function Notifications() {
                         className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all duration-200"
                         style={
                             activeFilter === f.id
-                                ? { background: "rgba(99,102,241,0.22)", border: "1px solid rgba(99,102,241,0.40)", color: "#a5b4fc" }
-                                : { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", color: "var(--text-muted)" }
+                                ? { background: "var(--primary-subtle)", border: "1px solid rgba(20,115,230,0.35)", color: "var(--primary-light)" }
+                                : { background: "var(--surface-soft)", border: "1px solid var(--border)", color: "var(--text-muted)" }
                         }
                     >
                         {f.label}
                         {f.id === "unread" && unreadCount > 0 && (
-                            <span className="ml-0.5 rounded-full font-bold text-[9px] px-1.5 py-0.5" style={{ background: "var(--primary)", color: "white" }}>
+                            <span className="ml-0.5 rounded-full font-bold text-[11px] px-1.5 py-0.5" style={{ background: "var(--primary)", color: "white" }}>
                                 {unreadCount}
                             </span>
                         )}
@@ -120,10 +120,10 @@ export default function Notifications() {
             )}
 
             {!loading && filtered.length === 0 && (
-                <div className="rounded-2xl p-12 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <div className="card rounded-2xl p-12 text-center">
                     <p className="text-4xl mb-3">🎉</p>
-                    <p className="text-[15px] font-semibold" style={{ color: "var(--text-sub)" }}>All caught up!</p>
-                    <p className="text-[12.5px] mt-1" style={{ color: "var(--text-muted)" }}>
+                    <p className="text-[15px] font-semibold" style={{ color: "var(--text-main)" }}>All caught up!</p>
+                    <p className="text-[14px] mt-1" style={{ color: "var(--text-muted)" }}>
                         No {activeFilter === "all" ? "" : activeFilter + " "}notifications right now.
                     </p>
                 </div>
@@ -135,7 +135,7 @@ export default function Notifications() {
                     if (!items.length) return null;
                     return (
                         <div key={group} className="space-y-2">
-                            <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] px-1" style={{ color: "var(--text-faint)" }}>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.18em] px-1 mb-2" style={{ color: "var(--text-muted)" }}>
                                 {group}
                             </p>
                             {items.map((n, i) => {
@@ -144,7 +144,7 @@ export default function Notifications() {
                                 const Icon = c.icon;
                                 const actor = n.actorId;
                                 const actorImg = actor?.profilePhoto ||
-                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(actor?.name || "U")}&background=6366f1&color=fff&bold=true&size=80`;
+                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(actor?.name || "U")}&background=1473e6&color=fff&bold=true&size=80`;
                                 return (
                                     <motion.div
                                         key={n._id}
@@ -152,11 +152,10 @@ export default function Notifications() {
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0, x: 16, scale: 0.96 }}
                                         transition={{ delay: i * 0.04, duration: 0.18 }}
-                                        className="flex items-start gap-4 p-4 rounded-2xl transition-all duration-200 group relative cursor-pointer"
+                                        className="flex items-start gap-4 p-4 rounded-xl transition-all duration-200 group relative cursor-pointer"
                                         style={{
-                                            background: !n.isRead ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.014)",
-                                            border: `1px solid ${!n.isRead ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)"}`,
-                                            opacity: n.isRead ? 0.75 : 1,
+                                            background: !n.isRead ? "var(--primary-subtle)" : "var(--surface)",
+                                            border: `1px solid ${!n.isRead ? "rgba(20,115,230,0.24)" : "var(--border)"}`,
                                         }}
                                         onClick={() => handleNotificationClick(n)}
                                     >
@@ -167,17 +166,17 @@ export default function Notifications() {
                                             <img src={actorImg} className="w-10 h-10 rounded-full object-cover" alt="" />
                                             <div
                                                 className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
-                                                style={{ background: c.bg, border: "2px solid #020817" }}
+                                                style={{ background: c.bg, border: "2px solid var(--surface)" }}
                                             >
                                                 <Icon size={10} style={{ color: c.color }} fill={type === "like" ? c.color : "none"} />
                                             </div>
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[13.5px] leading-relaxed">
-                                                <span className="font-semibold">{actor?.name || "Someone"}</span>{" "}
-                                                <span style={{ color: "var(--text-muted)" }}>{n.message || c.verb}</span>
+                                            <p className="text-[14px] leading-relaxed">
+                                                <span className="font-semibold" style={{ color: "var(--text-main)" }}>{actor?.name || "Someone"}</span>{" "}
+                                                <span style={{ color: "var(--text-sub)" }}>{n.message || c.verb}</span>
                                             </p>
-                                            <p className="text-[11px] mt-1" style={{ color: "var(--text-faint)" }}>{timeAgo(n.createdAt)} ago</p>
+                                            <p className="text-[12px] mt-1" style={{ color: "var(--text-muted)" }}>{timeAgo(n.createdAt)} ago</p>
                                         </div>
                                     </motion.div>
                                 );

@@ -1,4 +1,5 @@
 import { io } from "socket.io-client";
+import { API_BASE_URL as DEFAULT_API_BASE_URL } from "../config/api";
 
 function deriveSocketUrl() {
     const configuredSocketUrl = import.meta.env.VITE_SOCKET_URL;
@@ -7,13 +8,8 @@ function deriveSocketUrl() {
         return configuredSocketUrl.replace(/\/$/, "");
     }
 
-    const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
-
-    if (configuredApiBaseUrl) {
-        return configuredApiBaseUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
-    }
-
-    return "http://localhost:5050";
+    const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL;
+    return configuredApiBaseUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
 }
 
 const SOCKET_URL = deriveSocketUrl();

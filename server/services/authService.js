@@ -75,5 +75,29 @@ export const ensureUniqueUsername = async (seedValue) => {
     return username;
 };
 
+export const validatePasswordStrength = (password = "") => {
+    if (password.length < 8) {
+        return { valid: false, message: "Password must be at least 8 characters" };
+    }
+
+    if (!/[A-Z]/.test(password)) {
+        return { valid: false, message: "Password must include at least one uppercase letter" };
+    }
+
+    if (!/[a-z]/.test(password)) {
+        return { valid: false, message: "Password must include at least one lowercase letter" };
+    }
+
+    if (!/\d/.test(password)) {
+        return { valid: false, message: "Password must include at least one number" };
+    }
+
+    if (!/[^A-Za-z0-9]/.test(password)) {
+        return { valid: false, message: "Password must include at least one special character" };
+    }
+
+    return { valid: true };
+};
+
 export const hashPassword = (password) => bcrypt.hash(password, 12);
 export const comparePassword = (password, passwordHash) => bcrypt.compare(password, passwordHash);

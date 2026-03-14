@@ -1,14 +1,17 @@
 import express from "express";
 import { body } from "express-validator";
 import {
+    forgotPassword,
     getSession,
     loginUser,
     loginWithGoogle,
     registerUser,
-    requestRegistrationOtp
+    requestRegistrationOtp,
+    resetPassword
 } from "../controllers/authController.js";
 import protect from "../middleware/authMiddleware.js";
-import { loginLimiter, otpLimiter } from "../middleware/rateLimitMiddleware.js";
+import { validatePasswordStrength } from "../services/authService.js";
+import { authSensitiveLimiter, loginLimiter, otpLimiter } from "../middleware/rateLimitMiddleware.js";
 import validateRequest from "../middleware/validateRequest.js";
 
 const router = express.Router();
@@ -17,9 +20,17 @@ router.post(
     "/request-otp",
     otpLimiter,
     [
-        body("name").trim().isLength({ min: 2 }).withMessage("Name is required"),
-        body("email").isEmail().withMessage("Valid email required"),
-        body("password").isLength({ min: 8 }).withMessage("Password must be at least 8 characters")
+        body("name").trim().isLength({ min: 2, max: 80 }).withMessage("Name is required"),
+        body("email").trim().isEmail().withMessage("Valid email required"),
+        body("password")
+            .isString().withMessage("Password is required")
+            .custom((value) => {
+                const result = validatePasswordStrength(value);
+                if (!result.valid) {
+                    throw new Error(result.message);
+                }
+                return true;
+            })
     ],
     validateRequest,
     requestRegistrationOtp
@@ -28,8 +39,8 @@ router.post(
 router.post(
     "/register",
     [
-        body("email").isEmail().withMessage("Valid email required"),
-        body("otp").isLength({ min: 6, max: 6 }).withMessage("OTP must be 6 digits")
+        body("email").trim().isEmail().withMessage("Valid email required"),
+        body("otp").matches(/^\d{6}$/).withMessage("OTP must be 6 digits")
     ],
     validateRequest,
     registerUser
@@ -39,8 +50,9 @@ router.post(
     "/login",
     loginLimiter,
     [
-        body("email").isEmail().withMessage("Valid email required"),
-        body("password").notEmpty().withMessage("Password is required")
+        body("email").trim().isEmail().withMessage("Valid email required"),
+        body("password").isString().notEmpty().withMessage("Password is required"),
+        body("role").optional().isIn(["student", "admin"]).withMessage("Invalid role")
     ],
     validateRequest,
     loginUser
@@ -51,6 +63,38 @@ router.post(
     [body("idToken").notEmpty().withMessage("Google token is required")],
     validateRequest,
     loginWithGoogle
+);
+
+router.post(
+    "/forgot-password",
+    otpLimiter,
+    [
+        body("email").trim().isEmail().withMessage("Valid email required"),
+        body("role").optional().isIn(["student", "admin"]).withMessage("Invalid role")
+    ],
+    validateRequest,
+    forgotPassword
+);
+
+router.post(
+    "/reset-password",
+    authSensitiveLimiter,
+    [
+        body("email").trim().isEmail().withMessage("Valid email required"),
+        body("role").optional().isIn(["student", "admin"]).withMessage("Invalid role"),
+        body("otp").matches(/^\d{6}$/).withMessage("OTP must be 6 digits"),
+        body("newPassword")
+            .isString().withMessage("Password is required")
+            .custom((value) => {
+                const result = validatePasswordStrength(value);
+                if (!result.valid) {
+                    throw new Error(result.message);
+                }
+                return true;
+            })
+    ],
+    validateRequest,
+    resetPassword
 );
 
 router.get("/session", protect, getSession);

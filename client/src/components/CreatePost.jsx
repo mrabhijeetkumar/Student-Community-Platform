@@ -67,7 +67,7 @@ export default function CreatePost({ onPost }) {
         const ta = textareaRef.current;
         if (!ta) return;
         ta.style.height = "auto";
-        ta.style.height = Math.max(expanded ? 88 : 52, ta.scrollHeight) + "px";
+        ta.style.height = Math.max(expanded ? 96 : 48, ta.scrollHeight) + "px";
     }, [text, expanded]);
 
     // Close emoji panel on outside click
@@ -134,7 +134,7 @@ export default function CreatePost({ onPost }) {
     };
 
     const avatarUrl = user?.profilePhoto ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "U")}&background=6366f1&color=fff&bold=true&size=64`;
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "U")}&background=1473e6&color=fff&bold=true&size=64`;
 
     // SVG arc counter
     const r = 11;
@@ -144,53 +144,26 @@ export default function CreatePost({ onPost }) {
 
     return (
         <motion.div
-            animate={{ boxShadow: expanded ? "0 8px 40px rgba(99,102,241,0.18), 0 2px 8px rgba(0,0,0,0.4)" : "0 2px 12px rgba(0,0,0,0.25)" }}
-            transition={{ duration: 0.3 }}
-            className="card relative overflow-visible"
+            animate={{ borderColor: expanded ? "var(--border-focus)" : "var(--border)" }}
+            transition={{ duration: 0.2 }}
+            className="card"
         >
-            {/* Gradient top accent line */}
-            <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-2xl pointer-events-none"
-                style={{ background: "linear-gradient(90deg, #6366f1 0%, #a855f7 50%, #22d3ee 100%)" }} />
-
-            <div className="flex gap-3 pt-0.5">
-                {/* Avatar with gradient ring */}
-                <div className="shrink-0 relative mt-0.5" style={{ width: 40, height: 40 }}>
-                    <div className="absolute rounded-full"
-                        style={{ inset: -2, background: "linear-gradient(135deg,#6366f1,#22d3ee)", borderRadius: "9999px" }}>
-                        <div className="w-full h-full rounded-full" style={{ background: "var(--card-bg)", margin: "1.5px", width: "calc(100% - 3px)", height: "calc(100% - 3px)" }} />
-                    </div>
-                    <img src={avatarUrl} alt=""
-                        className="absolute inset-0 w-full h-full rounded-full object-cover"
-                        style={{ zIndex: 1 }} />
-                </div>
+            <div className="flex gap-3">
+                {/* Avatar */}
+                <img src={avatarUrl} alt="" className="w-11 h-11 rounded-full object-cover shrink-0 mt-0.5" />
 
                 <div className="flex-1 min-w-0">
-                    {/* Name + handle — only shows when expanded */}
-                    <AnimatePresence>
-                        {expanded && (
-                            <motion.p
-                                initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                                transition={{ duration: 0.15 }}
-                                className="text-[12px] font-semibold mb-1.5"
-                                style={{ color: "var(--text-sub)" }}
-                            >
-                                {user?.name}
-                                <span className="ml-1.5 font-normal" style={{ color: "var(--text-muted)" }}>@{user?.username}</span>
-                            </motion.p>
-                        )}
-                    </AnimatePresence>
-
                     {/* Textarea */}
                     <textarea
                         ref={textareaRef}
-                        placeholder="Share an idea, project, or ask the community…"
-                        className="w-full resize-none bg-transparent outline-none leading-relaxed transition-all duration-300 placeholder:text-slate-600"
+                        placeholder="Share an idea, ask a question, or post a project update…"
+                        className="w-full resize-none bg-transparent outline-none leading-relaxed placeholder:opacity-40"
                         style={{
-                            minHeight: expanded ? "88px" : "52px",
-                            maxHeight: "260px",
+                            minHeight: expanded ? "96px" : "48px",
+                            maxHeight: "280px",
                             color: "var(--text-main)",
-                            fontSize: "14.5px",
-                            caretColor: "#6366f1",
+                            fontSize: "15px",
+                            caretColor: "var(--primary)",
                         }}
                         value={text}
                         onFocus={() => setFocused(true)}
@@ -205,80 +178,71 @@ export default function CreatePost({ onPost }) {
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: "auto" }}
                                 exit={{ opacity: 0, height: 0 }}
-                                transition={{ duration: 0.2 }}
                                 className="flex gap-2 mt-2 pb-1 overflow-x-auto"
                                 style={{ scrollbarWidth: "none" }}
                             >
                                 {images.map((src, i) => (
-                                    <motion.div
-                                        key={i}
-                                        initial={{ opacity: 0, scale: 0.82 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.82 }}
-                                        transition={{ duration: 0.18 }}
-                                        className="relative shrink-0 rounded-xl overflow-hidden group"
-                                        style={{ width: 104, height: 78, border: "1px solid rgba(255,255,255,0.1)" }}
-                                    >
+                                    <div key={i} className="relative shrink-0 rounded-xl overflow-hidden group"
+                                        style={{ width: 90, height: 68, border: "1px solid var(--border)" }}>
                                         <img src={src} alt="" className="w-full h-full object-cover" />
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
                                         <button
-                                            onClick={() => setImages((p) => p.filter((_, idx) => idx !== i))}
-                                            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                            style={{ background: "rgba(0,0,0,0.75)", color: "white" }}
+                                            onClick={() => setImages(p => p.filter((_, idx) => idx !== i))}
+                                            className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                            style={{ background: "rgba(0,0,0,0.8)", color: "white" }}
                                         >
                                             <X size={9} />
                                         </button>
-                                        <span className="absolute bottom-1.5 left-1.5 text-[9px] font-bold px-1 rounded"
-                                            style={{ background: "rgba(0,0,0,0.55)", color: "white" }}>
-                                            {i + 1}/{images.length}
-                                        </span>
-                                    </motion.div>
+                                    </div>
                                 ))}
                                 {images.length < 4 && (
-                                    <motion.button
-                                        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                    <button
                                         onClick={() => imageInputRef.current?.click()}
-                                        className="shrink-0 rounded-xl flex flex-col items-center justify-center gap-1.5 hover:bg-indigo-500/10 transition-colors"
-                                        style={{ width: 78, height: 78, border: "1.5px dashed rgba(99,102,241,0.35)", color: "var(--text-muted)", background: "rgba(99,102,241,0.04)" }}
+                                        className="shrink-0 rounded-xl flex flex-col items-center justify-center gap-1 transition-colors"
+                                        style={{ width: 68, height: 68, border: "1.5px dashed var(--border-hover)", color: "var(--text-muted)" }}
                                     >
-                                        <ImagePlus size={15} style={{ color: "#6366f1" }} />
-                                        <span className="text-[9.5px] font-medium">Add more</span>
-                                    </motion.button>
+                                        <ImagePlus size={14} />
+                                        <span className="text-[12px]">Add</span>
+                                    </button>
                                 )}
                             </motion.div>
                         )}
                     </AnimatePresence>
 
-                    {/* Quick tag pills */}
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                        {QUICK_TAGS.map((tag, i) => (
-                            <motion.button
-                                key={tag}
-                                initial={{ opacity: 0, y: 5 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.03 * i }}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => toggleTag(tag)}
-                                className="text-[11.5px] px-2.5 py-[5px] rounded-full font-medium transition-all duration-150"
-                                style={
-                                    activeTags.includes(tag)
-                                        ? { background: "rgba(99,102,241,0.18)", border: "1px solid rgba(99,102,241,0.42)", color: "#a5b4fc" }
-                                        : { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--text-muted)" }
-                                }
+                    {/* Quick tags */}
+                    <AnimatePresence>
+                        {expanded && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="flex flex-wrap gap-1.5 mt-2.5"
                             >
-                                {tag}
-                            </motion.button>
-                        ))}
-                    </div>
+                                {QUICK_TAGS.map((tag) => (
+                                    <button
+                                        key={tag}
+                                        onClick={() => toggleTag(tag)}
+                                        className="text-[12px] px-2.5 py-1 rounded-lg font-medium transition-all duration-150"
+                                        style={
+                                            activeTags.includes(tag)
+                                                ? { background: "var(--primary-subtle)", border: "1px solid rgba(99,102,241,0.35)", color: "var(--primary-light)" }
+                                                : { background: "var(--surface-soft)", border: "1px solid var(--border)", color: "var(--text-muted)" }
+                                        }
+                                    >
+                                        {tag}
+                                    </button>
+                                ))}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
                     {/* Error */}
                     <AnimatePresence>
                         {error && (
                             <motion.p
-                                initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                                className="text-[12px] mt-2 px-3 py-1.5 rounded-lg"
-                                style={{ color: "#fb7185", background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.2)" }}
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="text-[14px] mt-2 px-3 py-2 rounded-lg"
+                                style={{ color: "#fb7185", background: "var(--error-bg)", border: "1px solid rgba(244,63,94,0.2)" }}
                             >
                                 {error}
                             </motion.p>
@@ -288,175 +252,122 @@ export default function CreatePost({ onPost }) {
             </div>
 
             {/* Footer toolbar */}
-            <div className="flex items-center justify-between mt-3 pt-3"
-                style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                <div className="flex items-center gap-0.5">
-
-                    {/* Hidden file input */}
+            <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                <div className="flex items-center gap-1">
                     <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImagePick} />
 
-                    {/* Image upload button */}
-                    <motion.button
-                        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                    {/* Image */}
+                    <button
                         onClick={() => imageInputRef.current?.click()}
                         disabled={images.length >= 4 || imageLoading}
-                        className="relative flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-200"
-                        style={{
-                            color: images.length > 0 ? "#6366f1" : "var(--text-muted)",
-                            background: images.length > 0 || imageLoading ? "rgba(99,102,241,0.12)" : "transparent",
-                            opacity: (images.length >= 4 || imageLoading) && !imageLoading ? 0.4 : 1,
-                        }}
-                        title="Upload image (max 4)"
+                        className="flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-150 relative"
+                        style={{ color: images.length > 0 ? "var(--primary-light)" : "var(--text-muted)" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--surface-hover)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                        title="Upload images (max 4)"
                     >
-                        {imageLoading
-                            ? <Loader2 size={15} className="animate-spin" style={{ color: "#6366f1" }} />
-                            : <ImagePlus size={15} />}
-                        {!imageLoading && images.length > 0 && (
-                            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full text-[8px] font-bold flex items-center justify-center"
-                                style={{ background: "#6366f1", color: "white" }}>
+                        {imageLoading ? <Loader2 size={15} className="animate-spin" /> : <ImagePlus size={15} />}
+                        {images.length > 0 && !imageLoading && (
+                            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full text-[12px] font-bold flex items-center justify-center"
+                                style={{ background: "var(--primary)", color: "white" }}>
                                 {images.length}
                             </span>
                         )}
-                    </motion.button>
+                    </button>
 
-                    {/* Hash — inserts # at cursor */}
-                    <motion.button
-                        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                        onClick={() => insertAtCursor(" #")}
-                        className="flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-200 hover:bg-white/[0.06]"
+                    {/* Hash */}
+                    <button onClick={() => insertAtCursor(" #")}
+                        className="flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-150"
                         style={{ color: "var(--text-muted)" }}
-                        title="Insert hashtag"
-                    >
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--surface-hover)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                        title="Hashtag">
                         <Hash size={15} />
-                    </motion.button>
+                    </button>
 
-                    {/* Emoji picker */}
+                    {/* Emoji */}
                     <div className="relative" ref={emojiRef}>
-                        <motion.button
-                            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                            onClick={() => setShowEmoji((v) => !v)}
-                            className="flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-200"
-                            style={{
-                                color: showEmoji ? "#f59e0b" : "var(--text-muted)",
-                                background: showEmoji ? "rgba(245,158,11,0.12)" : "transparent",
-                            }}
-                            title="Emoji"
-                        >
+                        <button onClick={() => setShowEmoji(v => !v)}
+                            className="flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-150"
+                            style={{ color: showEmoji ? "var(--warning)" : "var(--text-muted)", background: showEmoji ? "var(--warning-bg)" : "transparent" }}
+                            title="Emoji">
                             <Smile size={15} />
-                        </motion.button>
+                        </button>
 
                         <AnimatePresence>
                             {showEmoji && (
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10, scale: 0.92 }}
+                                    initial={{ opacity: 0, y: 8, scale: 0.94 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: 10, scale: 0.92 }}
-                                    transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                                    className="absolute bottom-11 left-0 z-50 rounded-2xl overflow-hidden"
+                                    exit={{ opacity: 0, y: 8, scale: 0.94 }}
+                                    transition={{ duration: 0.14 }}
+                                    className="absolute bottom-10 left-0 z-50 rounded-2xl overflow-hidden"
                                     style={{
-                                        width: 272,
-                                        background: "#0d1117",
-                                        border: "1px solid rgba(255,255,255,0.12)",
-                                        boxShadow: "0 20px 60px rgba(0,0,0,0.75), 0 0 0 1px rgba(99,102,241,0.1)",
+                                        width: 268,
+                                        background: "var(--surface-elevated)",
+                                        border: "1px solid var(--border-hover)",
+                                        boxShadow: "0 16px 48px rgba(0,0,0,0.65)",
                                     }}
                                 >
-                                    {/* Category tabs */}
-                                    <div className="flex" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                                    <div className="flex" style={{ borderBottom: "1px solid var(--border)" }}>
                                         {EMOJI_CATEGORIES.map((cat, i) => (
-                                            <button
-                                                key={i}
-                                                onClick={() => setEmojiCat(i)}
-                                                className="flex-1 py-2.5 text-[18px] transition-colors"
-                                                style={{ background: emojiCat === i ? "rgba(99,102,241,0.12)" : "transparent" }}
-                                            >
+                                            <button key={i} onClick={() => setEmojiCat(i)}
+                                                className="flex-1 py-2.5 text-lg transition-colors"
+                                                style={{ background: emojiCat === i ? "var(--primary-subtle)" : "transparent" }}>
                                                 {cat.icon}
                                             </button>
                                         ))}
                                     </div>
-                                    {/* Grid */}
                                     <div className="p-2 grid grid-cols-8 gap-0.5">
                                         {EMOJI_CATEGORIES[emojiCat].emojis.map((em) => (
-                                            <motion.button
-                                                key={em}
-                                                whileHover={{ scale: 1.3 }}
-                                                transition={{ duration: 0.1 }}
-                                                onClick={() => { insertAtCursor(em); setShowEmoji(false); }}
-                                                className="flex items-center justify-center rounded-lg text-[19px] hover:bg-white/10 transition-colors"
-                                                style={{ aspectRatio: "1", width: "100%" }}
-                                            >
+                                            <button key={em} onClick={() => { insertAtCursor(em); setShowEmoji(false); }}
+                                                className="flex items-center justify-center rounded-lg text-lg hover:bg-white/8 transition-colors"
+                                                style={{ aspectRatio: "1" }}>
                                                 {em}
-                                            </motion.button>
+                                            </button>
                                         ))}
-                                    </div>
-                                    <div className="px-3 py-1.5 text-center text-[10px]"
-                                        style={{ color: "var(--text-muted)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                                        Click to insert at cursor
                                     </div>
                                 </motion.div>
                             )}
                         </AnimatePresence>
                     </div>
 
-                    {/* Keyboard shortcut hint */}
-                    <AnimatePresence>
-                        {expanded && (
-                            <motion.span
-                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                className="ml-2 text-[10px] hidden sm:block select-none"
-                                style={{ color: "var(--text-muted)" }}
-                            >
-                                ⌘↵ to post
-                            </motion.span>
-                        )}
-                    </AnimatePresence>
+                    {expanded && (
+                        <span className="ml-2 text-[12px] hidden sm:block select-none" style={{ color: "var(--text-faint)" }}>
+                            ⌘↵ to post
+                        </span>
+                    )}
                 </div>
 
-                {/* Right: arc counter + post button */}
+                {/* Right: counter + post button */}
                 <div className="flex items-center gap-3">
-                    {/* SVG arc char counter */}
                     <AnimatePresence>
                         {text.length > 0 && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.5 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.5 }}
-                                className="relative"
-                                style={{ width: 28, height: 28 }}
-                            >
-                                <svg width="28" height="28" style={{ transform: "rotate(-90deg)" }} viewBox="0 0 28 28">
-                                    <circle cx="14" cy="14" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2.5" />
-                                    <circle
-                                        cx="14" cy="14" r={r} fill="none"
-                                        stroke={ringColor}
-                                        strokeWidth="2.5"
-                                        strokeLinecap="round"
-                                        strokeDasharray={`${fill} ${circ}`}
-                                        style={{ transition: "stroke-dasharray 0.15s, stroke 0.2s" }}
-                                    />
+                            <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}
+                                className="relative" style={{ width: 26, height: 26 }}>
+                                <svg width="26" height="26" style={{ transform: "rotate(-90deg)" }} viewBox="0 0 26 26">
+                                    <circle cx="13" cy="13" r={r} fill="none" stroke="var(--surface-hover)" strokeWidth="2.5" />
+                                    <circle cx="13" cy="13" r={r} fill="none" stroke={ringColor} strokeWidth="2.5" strokeLinecap="round"
+                                        strokeDasharray={`${fill} ${circ}`} style={{ transition: "stroke-dasharray 0.15s, stroke 0.2s" }} />
                                 </svg>
-                                {remaining <= 40 && (
+                                {remaining <= 50 && (
                                     <span className="absolute inset-0 flex items-center justify-center font-bold"
-                                        style={{ fontSize: "7.5px", color: ringColor }}>
-                                        {remaining}
-                                    </span>
+                                        style={{ fontSize: "7px", color: ringColor }}>{remaining}</span>
                                 )}
                             </motion.div>
                         )}
                     </AnimatePresence>
 
-                    {/* Post button */}
-                    <motion.button
+                    <button
                         onClick={handlePost}
                         disabled={!canPost || loading}
-                        whileHover={canPost && !loading ? { scale: 1.04, y: -1 } : {}}
-                        whileTap={canPost && !loading ? { scale: 0.96 } : {}}
-                        className="flex items-center gap-2 px-5 py-2 rounded-xl font-bold transition-all duration-200"
+                        className="flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-[14px] transition-all duration-150 select-none"
                         style={
                             !canPost
-                                ? { background: "rgba(99,102,241,0.18)", color: "#818cf8", cursor: "not-allowed", fontSize: "13px" }
+                                ? { background: "var(--surface-hover)", color: "var(--text-muted)", cursor: "not-allowed" }
                                 : postSuccess
-                                    ? { background: "linear-gradient(135deg,#10b981,#34d399)", color: "white", fontSize: "13px", boxShadow: "0 4px 16px rgba(16,185,129,0.4)" }
-                                    : { background: "linear-gradient(135deg, #6366f1 0%, #a855f7 60%, #22d3ee 100%)", color: "white", fontSize: "13px", boxShadow: "0 4px 20px rgba(99,102,241,0.45)" }
+                                    ? { background: "var(--success)", color: "white" }
+                                    : { background: "var(--primary)", color: "white" }
                         }
                     >
                         {loading ? (
@@ -466,7 +377,7 @@ export default function CreatePost({ onPost }) {
                         ) : (
                             <><Send size={13} /> Post</>
                         )}
-                    </motion.button>
+                    </button>
                 </div>
             </div>
         </motion.div>

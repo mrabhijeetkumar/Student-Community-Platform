@@ -19,32 +19,50 @@ export const getConversations = async (req, res) => {
             }).sort({ createdAt: -1 })
         );
 
-        const conversations = [];
-        const seenPartners = new Set();
+        // Collect unique partner IDs while building conversation map
+        const seen = new Set();
+        const latestByPartner = [];
 
         for (const message of messages) {
+            const partnerId = message.sender._id.toString() === req.user._id.toString()
+                ? message.recipient._id.toString()
+                : message.sender._id.toString();
+
+            if (seen.has(partnerId)) continue;
+            seen.add(partnerId);
+            latestByPartner.push(message);
+        }
+
+        // Single aggregation to count unread per sender instead of N queries
+        const unreadAgg = await Message.aggregate([
+            {
+                $match: {
+                    recipient: req.user._id,
+                    readAt: null
+                }
+            },
+            {
+                $group: {
+                    _id: "$sender",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+        const unreadMap = {};
+        for (const entry of unreadAgg) {
+            unreadMap[entry._id.toString()] = entry.count;
+        }
+
+        const conversations = latestByPartner.map((message) => {
             const partner = message.sender._id.toString() === req.user._id.toString()
                 ? message.recipient
                 : message.sender;
-
-            if (seenPartners.has(partner._id.toString())) {
-                continue;
-            }
-
-            seenPartners.add(partner._id.toString());
-
-            const unreadCount = await Message.countDocuments({
-                sender: partner._id,
-                recipient: req.user._id,
-                readAt: null
-            });
-
-            conversations.push({
+            return {
                 partner,
                 lastMessage: message,
-                unreadCount
-            });
-        }
+                unreadCount: unreadMap[partner._id.toString()] ?? 0
+            };
+        });
 
         res.json(conversations);
 

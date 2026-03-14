@@ -6,44 +6,40 @@ export default {
         extend: {
             colors: {
                 brand: {
-                    50: "#eef2ff",
-                    100: "#e0e7ff",
-                    200: "#c7d2fe",
-                    300: "#a5b4fc",
-                    400: "#818cf8",
-                    500: "#6366f1",
-                    600: "#4f46e5",
-                    700: "#4338ca",
-                    800: "#3730a3",
-                    900: "#312e81"
+                    50: "#eaf5ff",
+                    100: "#d5ebff",
+                    200: "#abd7ff",
+                    300: "#7cc2ff",
+                    400: "#4ca8ff",
+                    500: "#208cf8",
+                    600: "#1473e6",
+                    700: "#0f5bb8",
+                    800: "#124f95",
+                    900: "#123f73"
                 },
                 accent: {
-                    50: "#eff6ff",
-                    100: "#dbeafe",
-                    200: "#bae6fd",
-                    300: "#7dd3fc",
-                    400: "#38bdf8",
-                    500: "#0ea5e9",
-                    600: "#0284c7",
-                    700: "#0369a1",
-                    800: "#075985",
-                    900: "#0c4a6e"
+                    50: "#fff7eb",
+                    100: "#ffeccc",
+                    200: "#ffd59a",
+                    300: "#ffbc61",
+                    400: "#ffa032",
+                    500: "#ff8a00",
+                    600: "#db7000",
+                    700: "#b65706",
+                    800: "#93450d",
+                    900: "#783b0f"
                 },
                 canvas: {
-                    light: "#e2e8f0",
-                    dark: "#0f172a"
+                    base: "#0d0d14",
+                    surface: "#13131e",
+                    elevated: "#1a1a28",
+                    soft: "#20202e",
+                    hover: "#27273a"
                 },
-                panel: {
-                    DEFAULT: "#1e293b",
-                    muted: "#334155"
-                }
-            },
-            backgroundImage: {
-                "social-grid": "radial-gradient(circle at top, rgba(99, 102, 241, 0.18), transparent 28%), radial-gradient(circle at right top, rgba(56, 189, 248, 0.12), transparent 24%), linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 1))"
             },
             boxShadow: {
                 soft: "0 18px 48px rgba(2, 6, 23, 0.28)",
-                glow: "0 0 0 1px rgba(255,255,255,0.03), 0 18px 50px rgba(56,189,248,0.12)"
+                glow: "0 0 0 1px rgba(99,102,241,0.2), 0 8px 32px rgba(99,102,241,0.15)"
             },
             borderRadius: {
                 "4xl": "2rem"

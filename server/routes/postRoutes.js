@@ -4,19 +4,23 @@ import {
     deletePost,
     getPostsFeed,
     getUserPosts,
+    searchPosts,
     toggleLike,
     toggleSave,
     updatePost,
     voteOnPost
 } from "../controllers/postController.js";
 import protect from "../middleware/authMiddleware.js";
+import { createPostLimiter } from "../middleware/rateLimitMiddleware.js";
 
 const router = express.Router();
 
 router.use(protect);
 
-router.route("/").get(getPostsFeed).post(createPost);
+router.get("/", getPostsFeed);
+router.post("/", createPostLimiter, createPost);
 router.get("/feed", getPostsFeed);
+router.get("/search", searchPosts);
 router.get("/user/:userId", getUserPosts);
 router.put("/:id", updatePost);
 router.delete("/:id", deletePost);

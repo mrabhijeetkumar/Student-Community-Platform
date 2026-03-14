@@ -1,6 +1,6 @@
 import User from "../models/User.js";
 import { createNotification } from "../services/notificationService.js";
-import { buildSafeUser, ensureUniqueUsername } from "../services/authService.js";
+import { buildSafeUser, ensureUniqueUsername, hashPassword, comparePassword, validatePasswordStrength } from "../services/authService.js";
 
 const publicUserSelect = "username name email profilePhoto coverPhoto headline bio college skills socialLinks followers following role authProvider isEmailVerified createdAt updatedAt";
 
@@ -166,4 +166,66 @@ export const unfollowUser = async (req, res) => {
 
     const refreshedUser = await User.findOne({ username: targetUser.username }).select(publicUserSelect);
     res.json(formatProfileResponse(refreshedUser, req.user._id));
+};
+
+export const getUserFollowers = async (req, res) => {
+    try {
+        const user = await User.findOne({ username: req.params.username })
+            .select("followers")
+            .populate("followers", "username name profilePhoto headline college followers following");
+
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        res.json(user.followers.map((follower) => formatProfileResponse(follower, req.user._id)));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getUserFollowing = async (req, res) => {
+    try {
+        const user = await User.findOne({ username: req.params.username })
+            .select("following")
+            .populate("following", "username name profilePhoto headline college followers following");
+
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        res.json(user.following.map((followed) => formatProfileResponse(followed, req.user._id)));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        const passwordValidation = validatePasswordStrength(newPassword);
+
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ message: passwordValidation.message });
+        }
+
+        const user = await User.findById(req.user._id).select("+password");
+
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        // If user has a local password, verify current password
+        if (user.authProvider === "local" && user.password) {
+            if (!currentPassword) {
+                return res.status(400).json({ message: "Current password is required" });
+            }
+            const isMatch = await comparePassword(currentPassword, user.password);
+            if (!isMatch) {
+                return res.status(401).json({ message: "Current password is incorrect" });
+            }
+        }
+
+        user.password = await hashPassword(newPassword);
+        await user.save();
+
+        res.json({ message: "Password updated successfully" });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 };

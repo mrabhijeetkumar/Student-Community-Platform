@@ -4,9 +4,9 @@ export default function Notification({ title, message, tone = "info" }) {
     }
 
     const toneClasses = {
-        info: "border-accent-400/25 bg-accent-400/10 text-accent-100",
-        success: "border-emerald-400/25 bg-emerald-400/10 text-emerald-100",
-        warning: "border-amber-400/25 bg-amber-400/10 text-amber-100"
+        info: "border-accent-400/25 bg-accent-400/10 text-accent-700",
+        success: "border-emerald-400/25 bg-emerald-400/10 text-emerald-700",
+        warning: "border-amber-400/25 bg-amber-400/10 text-amber-700"
     };
 
     return (

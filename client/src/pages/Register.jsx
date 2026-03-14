@@ -1,25 +1,14 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, Mail, Lock, User, ArrowRight, ShieldCheck, Zap, Star } from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff, GraduationCap, ShieldCheck, Zap, CheckCircle, ArrowRight, Star } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Notification from "../components/Notification";
 import { useAuth } from "../context/useAuth.js";
 
-const steps = [
-    { num: 1, label: "Your details" },
-    { num: 2, label: "Verify OTP" },
-];
-
-const perks = [
-    { icon: ShieldCheck, color: "#10b981", label: "Verified identity", desc: "Only Gmail accounts accepted — no disposable domains." },
-    { icon: Zap, color: "#6366f1", label: "Instant access", desc: "Complete OTP verification and unlock the full platform." },
-    { icon: Star, color: "#f59e0b", label: "Community access", desc: "Post, collaborate, and join student communities instantly." },
-];
-
-const fade = (delay = 0) => ({
-    initial: { opacity: 0, y: 18 },
+const fadeUp = (i) => ({
+    initial: { opacity: 0, y: 16 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.48, delay, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] },
 });
 
 export default function Register() {
@@ -30,6 +19,7 @@ export default function Register() {
     const [previewOtp, setPreviewOtp] = useState("");
     const [otpRequested, setOtpRequested] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [showPass, setShowPass] = useState(false);
 
     const updateField = (field) => (e) =>
         setForm((s) => ({ ...s, [field]: e.target.value }));
@@ -70,191 +60,314 @@ export default function Register() {
         setForm((s) => ({ ...s, otp: "" }));
     };
 
+    const inputWrap = { position: "relative", display: "flex", alignItems: "center" };
+
+    const inputBase = {
+        width: "100%", padding: "12px 14px 12px 42px", fontSize: 14,
+        border: "1.5px solid var(--border)", borderRadius: 10,
+        background: "var(--surface-soft)", outline: "none", color: "var(--text-main)",
+        transition: "all 0.2s ease",
+    };
+
+    const iconStyle = {
+        position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+        color: "var(--text-muted)", pointerEvents: "none", transition: "color 0.2s",
+    };
+
+    const focusInput = (e) => {
+        e.target.style.borderColor = "var(--primary)";
+        e.target.style.boxShadow = "0 0 0 3px var(--primary-glow)";
+        e.target.style.background = "var(--surface-elevated)";
+        const icon = e.target.parentElement.querySelector(".input-icon");
+        if (icon) icon.style.color = "var(--primary)";
+    };
+
+    const blurInput = (e) => {
+        e.target.style.borderColor = "var(--border)";
+        e.target.style.boxShadow = "none";
+        e.target.style.background = "var(--surface-soft)";
+        const icon = e.target.parentElement.querySelector(".input-icon");
+        if (icon) icon.style.color = "var(--text-muted)";
+    };
+
+    const steps = [
+        { num: 1, label: "Your details" },
+        { num: 2, label: "Verify OTP" },
+    ];
+
     return (
-        <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
+        <main style={{
+            background: "linear-gradient(135deg, #ebf3ff 0%, #e2edff 45%, #f7f1e7 100%)",
+            minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px"
+        }}>
+            <motion.div
+                initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                style={{
+                    display: "flex", width: "100%", maxWidth: 860, minHeight: 520,
+                    borderRadius: 22, overflow: "hidden",
+                    boxShadow: "var(--shadow-strong)",
+                    background: "var(--surface-elevated)",
+                    border: "1px solid var(--border)"
+                }}>
 
-            {/* Ambient background */}
-            <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-                <div className="floating-orb -right-32 -top-20 h-[500px] w-[500px]"
-                    style={{ background: "radial-gradient(circle, rgba(99,102,241,0.22), transparent)" }} />
-                <div className="floating-orb -left-20 bottom-0 h-[400px] w-[400px]"
-                    style={{ background: "radial-gradient(circle, rgba(34,211,238,0.14), transparent)" }} />
-                <div className="absolute inset-0 opacity-[0.025]"
-                    style={{ backgroundImage: "linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px)", backgroundSize: "48px 48px" }} />
-            </div>
+                {/* ── LEFT PANEL ── */}
+                <div style={{
+                    width: "44%", background: "linear-gradient(155deg, #0a223d 0%, #156dce 52%, #31a6ff 100%)",
+                    padding: "44px 34px", display: "none", flexDirection: "column", justifyContent: "space-between",
+                    color: "#fff", flexShrink: 0, position: "relative", overflow: "hidden"
+                }}
+                    className="lg:!flex">
 
-            <div className="grid w-full max-w-5xl gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+                    {/* Decorative shapes */}
+                    <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
+                    <div style={{ position: "absolute", bottom: -30, left: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
+                    <div style={{ position: "absolute", top: "55%", right: 20, width: 60, height: 60, borderRadius: 14, background: "rgba(255,255,255,0.04)", transform: "rotate(45deg)" }} />
 
-                {/* ── Left brand panel ─────────────────────── */}
-                <motion.div {...fade(0)} className="card-surface relative overflow-hidden p-8 lg:p-10">
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-36 rounded-t-3xl"
-                        style={{ background: "linear-gradient(180deg, rgba(34,211,238,0.11) 0%, transparent 100%)" }} />
+                    <div style={{ position: "relative", zIndex: 1 }}>
+                        <motion.div {...fadeUp(0)} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
+                            <div style={{
+                                width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+                                background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)"
+                            }}>
+                                <GraduationCap size={20} color="#fff" />
+                            </div>
+                            <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em" }}>StudentHub</span>
+                        </motion.div>
 
-                    <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest mb-6"
-                        style={{ background: "rgba(34,211,238,0.12)", border: "1px solid rgba(34,211,238,0.25)", color: "#67e8f9" }}>
-                        Verified onboarding
-                    </span>
+                        <motion.h1 {...fadeUp(1)} style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 12 }}>
+                            Join the<br />Community
+                        </motion.h1>
+                        <motion.p {...fadeUp(2)} style={{ fontSize: 14, lineHeight: 1.6, opacity: 0.8, marginBottom: 28 }}>
+                            Create your verified student profile and unlock everything.
+                        </motion.p>
 
-                    <h1 className="display-title text-[1.9rem] font-bold leading-tight text-white">
-                        Create a trusted<br />
-                        <span style={{ background: "linear-gradient(90deg,#22d3ee,#818cf8)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
-                            student profile.
-                        </span>
-                    </h1>
-                    <p className="mt-4 text-[14px] leading-relaxed" style={{ color: "var(--text-sub)" }}>
-                        Gmail OTP verification keeps the network genuine. Disposable email domains are blocked.
-                    </p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            {[
+                                { icon: ShieldCheck, text: "Gmail-only verification" },
+                                { icon: Zap, text: "Instant platform access" },
+                                { icon: Star, text: "Free forever" },
+                            ].map(({ icon: Icon, text }, i) => (
+                                <motion.div key={text} {...fadeUp(i + 3)}
+                                    style={{ display: "flex", alignItems: "center", gap: 11 }}>
+                                    <div style={{
+                                        width: 30, height: 30, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+                                        background: "rgba(255,255,255,0.10)"
+                                    }}>
+                                        <Icon size={14} color="rgba(255,255,255,0.85)" />
+                                    </div>
+                                    <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.85 }}>{text}</span>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </div>
 
-                    {/* Steps */}
-                    <div className="mt-7 space-y-2.5">
-                        {steps.map((s, i) => (
-                            <motion.div key={s.num}
-                                initial={{ opacity: 0, x: -12 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.15 + i * 0.08 }}
-                                className="flex items-center gap-3 rounded-2xl px-4 py-3"
-                                style={{
-                                    background: (otpRequested ? s.num <= 2 : s.num === 1) ? "rgba(99,102,241,0.10)" : "rgba(255,255,255,0.03)",
-                                    border: (otpRequested ? s.num <= 2 : s.num === 1) ? "1px solid rgba(99,102,241,0.22)" : "1px solid var(--border)",
+                    {/* Step indicator on left panel */}
+                    <motion.div {...fadeUp(6)} style={{
+                        position: "relative", zIndex: 1, marginTop: 24,
+                        display: "flex", flexDirection: "column", gap: 10
+                    }}>
+                        {steps.map((s) => {
+                            const isDone = otpRequested && s.num === 1;
+                            const isActive = (!otpRequested && s.num === 1) || (otpRequested && s.num === 2);
+                            return (
+                                <div key={s.num} style={{
+                                    display: "flex", alignItems: "center", gap: 10,
+                                    padding: "10px 14px", borderRadius: 10,
+                                    background: isActive || isDone ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
+                                    border: `1px solid ${isActive || isDone ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.06)"}`,
+                                    transition: "all 0.3s ease"
                                 }}>
-                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-bold"
-                                    style={{
-                                        background: (otpRequested && s.num === 1) ? "#10b981" : ((!otpRequested && s.num === 1) || (otpRequested && s.num === 2)) ? "var(--primary)" : "var(--surface-soft)",
-                                        color: "white",
+                                    <span style={{
+                                        width: 26, height: 26, borderRadius: "50%",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        fontSize: 12, fontWeight: 700,
+                                        background: isDone ? "#10b981" : isActive ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.08)",
+                                        color: "#fff", transition: "all 0.3s"
                                     }}>
-                                    {otpRequested && s.num === 1 ? <CheckCircle size={14} /> : s.num}
+                                        {isDone ? <CheckCircle size={14} /> : s.num}
+                                    </span>
+                                    <span style={{ fontSize: 13, fontWeight: 600 }}>{s.label}</span>
+                                    {isDone && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, background: "rgba(16,185,129,0.25)", color: "#4ade80", padding: "2px 8px", borderRadius: 20 }}>Done</span>}
+                                    {isActive && !isDone && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)", padding: "2px 8px", borderRadius: 20 }}>Current</span>}
                                 </div>
-                                <p className="text-[13px] font-medium" style={{ color: "var(--text-main)" }}>{s.label}</p>
-                            </motion.div>
-                        ))}
+                            );
+                        })}
+                    </motion.div>
+                </div>
+
+                {/* ── RIGHT FORM PANEL ── */}
+                <div style={{ flex: 1, padding: "36px 38px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+
+                    {/* Mobile logo */}
+                    <div className="lg:hidden" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+                        <GraduationCap size={22} color="var(--primary)" />
+                        <span style={{ fontSize: 16, fontWeight: 700, color: "var(--text-main)" }}>StudentHub</span>
                     </div>
 
-                    {/* Perks */}
-                    <div className="mt-7 space-y-3">
-                        {perks.map(({ icon: Icon, color, label, desc }) => (
-                            <div key={label} className="flex items-start gap-3">
-                                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
-                                    style={{ background: `${color}18` }}>
-                                    <Icon size={14} style={{ color }} />
-                                </div>
-                                <div>
-                                    <p className="text-[13px] font-semibold" style={{ color: "var(--text-main)" }}>{label}</p>
-                                    <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-muted)" }}>{desc}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </motion.div>
+                    <AnimatePresence mode="wait">
+                        <motion.div key={otpRequested ? "otp-head" : "reg-head"}
+                            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.25 }}>
+                            <h2 style={{ fontSize: 24, fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.02em", marginBottom: 2 }}>
+                                {otpRequested ? "Verify Your Email" : "Create Account"}
+                            </h2>
+                            <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 22 }}>
+                                {otpRequested ? `OTP sent to ${form.email}` : "Use a Gmail address to get started"}
+                            </p>
+                        </motion.div>
+                    </AnimatePresence>
 
-                {/* ── Right form panel ─────────────────────── */}
-                <motion.div {...fade(0.12)} className="card-floating relative overflow-hidden" style={{ padding: "2rem 1.75rem" }}>
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-24 rounded-t-3xl"
-                        style={{ background: "linear-gradient(180deg, rgba(34,211,238,0.09) 0%, transparent 100%)" }} />
-
-                    {/* Step indicator */}
-                    <div className="mb-5 flex items-center gap-3">
-                        {steps.map((s, i) => (
-                            <div key={s.num} className="flex items-center gap-2">
-                                <div className="flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold transition-all duration-300"
-                                    style={{
-                                        background: (otpRequested && s.num === 1) ? "#10b981" : ((!otpRequested && s.num === 1) || (otpRequested && s.num === 2)) ? "var(--primary)" : "var(--surface-soft)",
-                                        color: "white",
+                    {/* Mobile step pills */}
+                    <div className="lg:hidden" style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+                        {steps.map((s, i) => {
+                            const isDone = otpRequested && s.num === 1;
+                            const isActive = (!otpRequested && s.num === 1) || (otpRequested && s.num === 2);
+                            return (
+                                <div key={s.num} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <div style={{
+                                        display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+                                        background: isActive ? "var(--primary)" : isDone ? "var(--success-bg)" : "var(--surface-soft)",
+                                        color: isActive ? "#fff" : isDone ? "var(--success)" : "var(--text-muted)",
+                                        border: isDone ? "1px solid rgba(19,138,92,0.25)" : "1px solid transparent"
                                     }}>
-                                    {otpRequested && s.num === 1 ? <CheckCircle size={13} /> : s.num}
+                                        <span style={{
+                                            width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                                            fontSize: 10, fontWeight: 700,
+                                            background: isActive ? "rgba(255,255,255,0.2)" : isDone ? "var(--success)" : "var(--border)",
+                                            color: isActive || isDone ? "#fff" : "#94a3b8"
+                                        }}>
+                                            {isDone ? "✓" : s.num}
+                                        </span>
+                                        {s.label}
+                                    </div>
+                                    {i === 0 && <div style={{ width: 16, height: 2, borderRadius: 1, background: otpRequested ? "var(--success)" : "var(--border)" }} />}
                                 </div>
-                                <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>{s.label}</span>
-                                {i < steps.length - 1 && (
-                                    <div className="h-px w-8 mx-1 transition-all duration-300"
-                                        style={{ background: otpRequested ? "var(--primary)" : "var(--border)" }} />
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
-                    <span className="section-title">Register</span>
-                    <h2 className="display-title mt-2 text-[22px] font-bold" style={{ color: "var(--text-main)" }}>
-                        {otpRequested ? "Enter your OTP" : "Create your account"}
-                    </h2>
-                    <p className="mt-1.5 text-[13px]" style={{ color: "var(--text-sub)" }}>
-                        {otpRequested
-                            ? `OTP sent to ${form.email}. Check your inbox.`
-                            : "Use a Gmail address and a strong password."}
-                    </p>
-
-                    <form onSubmit={otpRequested ? handleRegister : handleRequestOtp} className="mt-5 space-y-4">
+                    <form onSubmit={otpRequested ? handleRegister : handleRequestOtp}
+                        style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         <Notification tone={feedback.tone} message={feedback.text} />
 
                         <AnimatePresence mode="wait">
                             {!otpRequested ? (
-                                <motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+                                <motion.div key="step1" initial={{ opacity: 0, x: 0 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                                    transition={{ duration: 0.25 }}
+                                    style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                                     <div>
-                                        <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium" style={{ color: "var(--text-sub)" }}>
-                                            <User size={12} /> Full name
-                                        </label>
-                                        <input className="input" placeholder="Your full name"
-                                            value={form.name} onChange={updateField("name")} required />
+                                        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-sub)", marginBottom: 7 }}>Full Name</label>
+                                        <div style={inputWrap}>
+                                            <User size={16} style={iconStyle} className="input-icon" />
+                                            <input placeholder="Your full name" required value={form.name} onChange={updateField("name")}
+                                                style={inputBase} onFocus={focusInput} onBlur={blurInput} />
+                                        </div>
                                     </div>
                                     <div>
-                                        <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium" style={{ color: "var(--text-sub)" }}>
-                                            <Mail size={12} /> Gmail address
-                                        </label>
-                                        <input className="input" type="email" placeholder="name@gmail.com"
-                                            value={form.email} onChange={updateField("email")} required />
+                                        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-sub)", marginBottom: 7 }}>Gmail Address</label>
+                                        <div style={inputWrap}>
+                                            <Mail size={16} style={iconStyle} className="input-icon" />
+                                            <input type="email" placeholder="name@gmail.com" required value={form.email} onChange={updateField("email")}
+                                                style={inputBase} onFocus={focusInput} onBlur={blurInput} />
+                                        </div>
                                     </div>
                                     <div>
-                                        <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium" style={{ color: "var(--text-sub)" }}>
-                                            <Lock size={12} /> Password
-                                        </label>
-                                        <input className="input" type="password" placeholder="Minimum 8 characters"
-                                            value={form.password} onChange={updateField("password")} required />
+                                        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-sub)", marginBottom: 7 }}>Password</label>
+                                        <div style={inputWrap}>
+                                            <Lock size={16} style={iconStyle} className="input-icon" />
+                                            <input type={showPass ? "text" : "password"} placeholder="Minimum 8 characters" required
+                                                value={form.password} onChange={updateField("password")}
+                                                style={{ ...inputBase, paddingRight: 48 }} onFocus={focusInput} onBlur={blurInput} />
+                                            <button type="button" onClick={() => setShowPass(s => !s)}
+                                                style={{
+                                                    position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                                                    background: "none", border: "none", cursor: "pointer", padding: 4,
+                                                    color: "var(--text-muted)", display: "flex", transition: "color 0.2s"
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.color = "var(--primary)"}
+                                                onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}>
+                                                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                        </div>
                                     </div>
                                 </motion.div>
                             ) : (
-                                <motion.div key="step2" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="space-y-3">
+                                <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                                    transition={{ duration: 0.25 }}
+                                    style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                                     <div>
-                                        <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium" style={{ color: "var(--text-sub)" }}>
-                                            <ShieldCheck size={12} /> 6-digit OTP
-                                        </label>
-                                        <input className="input text-center text-[18px] font-bold tracking-[0.4em]"
-                                            type="text"
-                                            inputMode="numeric"
-                                            autoComplete="one-time-code"
-                                            pattern="[0-9]{6}"
-                                            placeholder="• • • • • •"
-                                            maxLength={6}
-                                            value={form.otp}
-                                            onChange={updateOtp}
-                                            required />
+                                        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-sub)", marginBottom: 7 }}>6-digit OTP Code</label>
+                                        <input
+                                            type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}"
+                                            placeholder="• • • • • •" maxLength={6}
+                                            value={form.otp} onChange={updateOtp} required
+                                            style={{
+                                                width: "100%", padding: "14px", fontSize: 24, fontWeight: 800,
+                                                textAlign: "center", letterSpacing: "0.4em",
+                                                border: "1.5px solid var(--border)", borderRadius: 10,
+                                                background: "var(--surface-soft)", outline: "none", color: "var(--text-main)",
+                                                transition: "all 0.2s"
+                                            }}
+                                            onFocus={(e) => { e.target.style.borderColor = "var(--primary)"; e.target.style.boxShadow = "0 0 0 3px var(--primary-glow)"; e.target.style.background = "var(--surface-elevated)"; }}
+                                            onBlur={(e) => { e.target.style.borderColor = "var(--border)"; e.target.style.boxShadow = "none"; e.target.style.background = "var(--surface-soft)"; }} />
+                                        <p style={{ marginTop: 10, fontSize: 12, color: "var(--text-muted)", textAlign: "center" }}>
+                                            Check your Gmail inbox. Expires in 10 minutes.
+                                        </p>
                                     </div>
-                                    {previewOtp && (
-                                        <Notification tone="info" title="Local preview OTP" message={previewOtp} />
-                                    )}
+                                    {previewOtp && <Notification tone="info" title="Local preview OTP" message={previewOtp} />}
                                 </motion.div>
                             )}
                         </AnimatePresence>
 
-                        <button type="submit" className="btn-primary w-full" disabled={loading}>
-                            {loading ? "Processing…" : otpRequested
-                                ? <><ShieldCheck size={14} /><span>Verify &amp; Create account</span></>
-                                : <><span>Send OTP</span><ArrowRight size={14} /></>}
+                        <button type="submit" disabled={loading}
+                            style={{
+                                width: "100%", padding: "12px 0", fontSize: 14, fontWeight: 700,
+                                background: "linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)",
+                                color: "#fff", border: "none", borderRadius: 10,
+                                cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1,
+                                boxShadow: "0 10px 20px rgba(20,115,230,0.26)",
+                                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                                transition: "all 0.2s ease"
+                            }}
+                            onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.boxShadow = "0 12px 24px rgba(20,115,230,0.35)"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
+                            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 10px 20px rgba(20,115,230,0.26)"; e.currentTarget.style.transform = "translateY(0)"; }}>
+                            {loading ? (
+                                <>
+                                    <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                                        style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block" }} />
+                                    Processing…
+                                </>
+                            ) : otpRequested ? (
+                                <><ShieldCheck size={16} /> Verify & Create Account</>
+                            ) : (
+                                <>Send Verification OTP <ArrowRight size={16} /></>
+                            )}
                         </button>
                     </form>
 
                     {otpRequested && (
-                        <button type="button" className="btn-secondary mt-3 w-full text-[13px]" onClick={resetOtp}>
+                        <button type="button" onClick={resetOtp}
+                            style={{
+                                width: "100%", marginTop: 10, padding: "10px 0", fontSize: 13, fontWeight: 600,
+                                background: "var(--surface-soft)", color: "var(--text-sub)", border: "1.5px solid var(--border)", borderRadius: 10,
+                                cursor: "pointer", transition: "all 0.2s"
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-hover)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--surface-soft)"; }}>
                             ← Edit registration details
                         </button>
                     )}
 
-                    <p className="mt-5 text-[13px]" style={{ color: "var(--text-sub)" }}>
-                        Already have an account?{" "}
-                        <Link className="font-semibold" style={{ color: "var(--accent)" }} to="/login">
-                            Sign in →
+                    {/* Footer */}
+                    <div style={{ marginTop: 22, textAlign: "center" }}>
+                        <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Already have an account?{" "}</span>
+                        <Link to="/login" style={{ fontSize: 13, fontWeight: 700, color: "var(--primary)", textDecoration: "none" }}>
+                            Sign in
                         </Link>
-                    </p>
-                </motion.div>
-
-            </div>
+                    </div>
+                </div>
+            </motion.div>
         </main>
     );
 }

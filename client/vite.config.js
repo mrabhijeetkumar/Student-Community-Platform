@@ -8,11 +8,11 @@ export default defineConfig({
     server: {
         proxy: {
             "/api": {
-                target: "http://localhost:5050",
+                target: "https://student-community-backend-w3df.onrender.com",
                 changeOrigin: true,
             },
             "/socket.io": {
-                target: "http://localhost:5050",
+                target: "https://student-community-backend-w3df.onrender.com",
                 changeOrigin: true,
                 ws: true,
             }

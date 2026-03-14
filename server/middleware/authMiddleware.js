@@ -26,6 +26,10 @@ export const protect = async (req, res, next) => {
                 return res.status(403).json({ message: "Verify your email to access the platform" });
             }
 
+            if (req.user.isBanned) {
+                return res.status(403).json({ message: "Your account has been suspended. Contact support for assistance." });
+            }
+
             next();
 
         } catch (error) {

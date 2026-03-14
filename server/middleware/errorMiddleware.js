@@ -5,9 +5,11 @@ export const notFound = (req, res, next) => {
 
 export const errorHandler = (error, req, res, next) => {
     const statusCode = res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
+    const isProduction = process.env.NODE_ENV === "production";
+    const shouldExposeMessage = statusCode < 500 || !isProduction;
 
     res.status(statusCode).json({
-        message: error.message,
-        stack: process.env.NODE_ENV === "production" ? undefined : error.stack
+        message: shouldExposeMessage ? error.message : "Internal server error",
+        stack: isProduction ? undefined : error.stack
     });
 };

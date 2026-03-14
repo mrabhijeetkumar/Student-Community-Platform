@@ -156,3 +156,18 @@ export const leaveCommunity = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const getCommunityBySlug = async (req, res) => {
+    try {
+        await ensureSeedCommunities();
+        const community = await Community.findOne({ slug: req.params.slug });
+
+        if (!community) {
+            return res.status(404).json({ message: "Community not found" });
+        }
+
+        res.json(formatCommunity(community, req.user._id));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

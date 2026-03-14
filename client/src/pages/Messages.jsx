@@ -1,4 +1,4 @@
-import { Send, Search, Phone, Video, MoreHorizontal, Smile, Paperclip, Loader2, Hash, Radio, MessageSquareText } from "lucide-react";
+import { Send, Search, Phone, Video, MoreHorizontal, Smile, Paperclip, Loader2, Hash, Radio, MessageSquareText, ArrowLeft } from "lucide-react";
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "react-router-dom";
@@ -433,91 +433,103 @@ export default function Messages() {
     }, {});
 
     return (
-        <div className="grid h-[calc(100vh-9rem)] gap-4 xl:grid-cols-[320px_minmax(0,1fr)_280px]">
-            <aside className="flex min-h-0 flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/65">
-                <div className="border-b border-white/10 px-4 py-4">
-                    <div className="flex items-center justify-between gap-3">
-                        <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Direct messages</p>
-                            <h1 className="mt-1 text-lg font-bold text-white">Chat hub</h1>
-                        </div>
+        <div className="grid h-[calc(100dvh-10.25rem)] gap-3 lg:h-[calc(100dvh-9.25rem)] lg:grid-cols-[290px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)_260px]">
+            {/* ── Conversations sidebar ── */}
+            <aside
+                className={`${activeId ? "hidden lg:flex" : "flex"} min-h-0 flex-col overflow-hidden rounded-xl`}
+                style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}
+            >
+                {/* Sidebar header */}
+                <div className="px-4 pt-4 pb-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <h1 className="text-[16px] font-bold" style={{ color: "var(--text-main)" }}>Messages</h1>
                         <span
-                            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold"
                             style={socketStatus === "online"
-                                ? { background: "rgba(34,197,94,0.12)", color: "#86efac" }
+                                ? { background: "var(--success-bg)", color: "var(--success)" }
                                 : socketStatus === "error"
-                                    ? { background: "rgba(244,63,94,0.12)", color: "#fda4af" }
-                                    : { background: "rgba(148,163,184,0.12)", color: "#cbd5e1" }}
+                                    ? { background: "var(--error-bg)", color: "var(--error)" }
+                                    : { background: "var(--surface-soft)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
                         >
-                            <Radio size={11} /> {socketStatus}
+                            <Radio size={9} />
+                            {socketStatus}
                         </span>
                     </div>
-
-                    <div className="relative mt-4">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <div className="relative">
+                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
                         <input
-                            className="w-full rounded-2xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-3 text-sm text-white outline-none placeholder:text-slate-500"
-                            placeholder="Search conversations"
+                            className="w-full rounded-lg py-2 pl-8 pr-3 text-[13px] outline-none"
+                            style={{ background: "var(--surface-soft)", border: "1px solid var(--border)", color: "var(--text-main)" }}
+                            placeholder="Search conversations…"
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
                         />
                     </div>
                 </div>
 
-                <div className="flex-1 space-y-1 overflow-y-auto p-2 scrollbar-thin">
+                {/* Conversation list */}
+                <div className="flex-1 overflow-y-auto p-2" style={{ scrollbarWidth: "thin" }}>
                     {loadingConvos ? (
                         <div className="flex justify-center py-10">
-                            <Loader2 size={18} className="animate-spin text-indigo-300" />
+                            <Loader2 size={18} className="animate-spin" style={{ color: "var(--primary-light)" }} />
                         </div>
                     ) : null}
 
                     {!loadingConvos && filteredConvos.length === 0 ? (
                         <div className="px-4 py-10 text-center">
-                            <MessageSquareText className="mx-auto h-10 w-10 text-slate-600" />
-                            <p className="mt-3 text-sm font-semibold text-white">No conversations yet</p>
-                            <p className="mt-1 text-xs text-slate-500">Your message history will show up here.</p>
+                            <MessageSquareText className="mx-auto h-9 w-9 mb-3" style={{ color: "var(--text-faint)" }} />
+                            <p className="text-[14px] font-semibold" style={{ color: "var(--text-main)" }}>No conversations yet</p>
+                            <p className="mt-1 text-[12px]" style={{ color: "var(--text-muted)" }}>Your messages will appear here.</p>
                         </div>
                     ) : null}
 
                     {!loadingConvos && filteredConvos.map((conversation) => {
                         const isActive = String(conversation.partner._id) === String(activeId);
+                        const presence = presenceByUserId[String(conversation.partner._id)];
 
                         return (
                             <button
                                 key={conversation.partner._id}
                                 type="button"
                                 onClick={() => setActiveId(conversation.partner._id)}
-                                className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all duration-200"
+                                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors"
                                 style={isActive
-                                    ? { background: "linear-gradient(135deg, rgba(99,102,241,0.24), rgba(34,211,238,0.12))", border: "1px solid rgba(99,102,241,0.24)" }
+                                    ? { background: "var(--primary-subtle)", border: "1px solid rgba(10,102,194,0.18)" }
                                     : { background: "transparent", border: "1px solid transparent" }}
                             >
+                                {/* Avatar + presence dot */}
                                 <div className="relative shrink-0">
                                     <img
-                                        src={conversation.partner.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(conversation.partner.name)}&background=6366f1&color=fff&bold=true&size=80`}
-                                        className="h-11 w-11 rounded-2xl object-cover"
+                                        src={conversation.partner.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(conversation.partner.name)}&background=0a66c2&color=fff&bold=true&size=80`}
+                                        className="h-10 w-10 rounded-xl object-cover"
                                         alt={conversation.partner.name}
                                     />
                                     <span
-                                        className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-slate-950"
+                                        className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2"
                                         style={{
-                                            background: presenceByUserId[String(conversation.partner._id)]?.status === "online"
-                                                ? "#34d399"
-                                                : presenceByUserId[String(conversation.partner._id)]?.status === "idle"
-                                                    ? "#fbbf24"
-                                                    : "#64748b"
+                                            borderColor: "var(--surface)",
+                                            background: presence?.status === "online" ? "var(--success)" : presence?.status === "idle" ? "var(--warning)" : "var(--text-faint)"
                                         }}
                                     />
                                 </div>
+
                                 <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <p className="truncate text-[13px] font-semibold text-white">{conversation.partner.name}</p>
-                                        <span className="shrink-0 text-[10px] text-slate-500">{conversation.lastMessage?.createdAt ? timeStr(conversation.lastMessage.createdAt) : ""}</span>
+                                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                                        <p className="truncate text-[14px] font-semibold" style={{ color: "var(--text-main)" }}>{conversation.partner.name}</p>
+                                        <span className="shrink-0 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                                            {conversation.lastMessage?.createdAt ? timeStr(conversation.lastMessage.createdAt) : ""}
+                                        </span>
                                     </div>
-                                    <p className="mt-1 truncate text-[11.5px] text-slate-400">{conversation.lastMessage?.content || formatPresenceLabel(presenceByUserId[String(conversation.partner._id)])}</p>
+                                    <p className="truncate text-[12px]" style={{ color: isActive ? "var(--primary)" : "var(--text-sub)" }}>
+                                        {conversation.lastMessage?.content || formatPresenceLabel(presence)}
+                                    </p>
                                 </div>
+
                                 {conversation.unreadCount > 0 ? (
-                                    <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-indigo-500 px-2 py-1 text-[10px] font-bold text-white">
+                                    <span
+                                        className="shrink-0 min-w-[20px] h-5 rounded-full flex items-center justify-center text-[11px] font-bold px-1.5"
+                                        style={{ background: "var(--primary)", color: "#fff" }}
+                                    >
                                         {conversation.unreadCount}
                                     </span>
                                 ) : null}
@@ -527,74 +539,97 @@ export default function Messages() {
                 </div>
             </aside>
 
-            <section className="flex min-h-0 flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/65">
+            {/* ── Chat panel ── */}
+            <section
+                className={`${activeId ? "flex" : "hidden lg:flex"} min-h-0 flex-col overflow-hidden rounded-xl`}
+                style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}
+            >
                 {!activeId ? (
                     <div className="flex flex-1 items-center justify-center px-6 text-center">
                         <div>
-                            <Hash className="mx-auto h-12 w-12 text-slate-600" />
-                            <h2 className="mt-4 text-lg font-semibold text-white">Pick a conversation</h2>
-                            <p className="mt-2 text-sm text-slate-400">Open a thread to load chat history and start messaging in real time.</p>
+                            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl" style={{ background: "var(--primary-subtle)" }}>
+                                <Hash className="h-8 w-8" style={{ color: "var(--primary)" }} />
+                            </div>
+                            <h2 className="text-[16px] font-bold" style={{ color: "var(--text-main)" }}>Pick a conversation</h2>
+                            <p className="mt-2 text-[13px] max-w-xs mx-auto leading-relaxed" style={{ color: "var(--text-sub)" }}>
+                                Select a chat from the left to view history and start messaging in real time.
+                            </p>
                         </div>
                     </div>
                 ) : (
                     <>
-                        <div className="flex items-center gap-4 border-b border-white/10 px-5 py-4">
+                        {/* Chat header */}
+                        <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                            <button
+                                type="button"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg lg:hidden"
+                                style={{ background: "var(--surface-soft)", border: "1px solid var(--border)", color: "var(--text-sub)" }}
+                                onClick={() => setActiveId(null)}
+                                title="Back to conversations"
+                            >
+                                <ArrowLeft size={16} />
+                            </button>
+
                             <div className="relative shrink-0">
                                 <img
-                                    src={displayPartner?.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayPartner?.name || "U")}&background=6366f1&color=fff&bold=true&size=80`}
-                                    className="h-11 w-11 rounded-2xl object-cover"
+                                    src={displayPartner?.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayPartner?.name || "U")}&background=0a66c2&color=fff&bold=true&size=80`}
+                                    className="h-10 w-10 rounded-xl object-cover"
                                     alt={displayPartner?.name || "User"}
                                 />
                                 <span
-                                    className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-slate-950"
+                                    className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2"
                                     style={{
-                                        background: activePresence?.status === "online"
-                                            ? "#34d399"
-                                            : activePresence?.status === "idle"
-                                                ? "#fbbf24"
-                                                : "#64748b"
+                                        borderColor: "var(--surface)",
+                                        background: activePresence?.status === "online" ? "var(--success)" : activePresence?.status === "idle" ? "var(--warning)" : "var(--text-faint)"
                                     }}
                                 />
                             </div>
 
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
-                                    <h2 className="truncate text-[15px] font-semibold text-white">{displayPartner?.name}</h2>
-                                    <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                                    <h2 className="truncate text-[15px] font-bold" style={{ color: "var(--text-main)" }}>{displayPartner?.name}</h2>
+                                    <span
+                                        className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
                                         style={activePresence?.status === "online"
-                                            ? { background: "rgba(52,211,153,0.10)", color: "#86efac" }
+                                            ? { background: "var(--success-bg)", color: "var(--success)" }
                                             : activePresence?.status === "idle"
-                                                ? { background: "rgba(251,191,36,0.10)", color: "#fde68a" }
-                                                : { background: "rgba(148,163,184,0.10)", color: "#cbd5e1" }}>
+                                                ? { background: "var(--warning-bg)", color: "var(--warning)" }
+                                                : { background: "var(--surface-soft)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
                                         {activePresence?.status || "offline"}
                                     </span>
                                 </div>
-                                <p className="mt-1 truncate text-[12px] text-slate-400">{isPartnerTyping ? `${displayPartner?.name || "Someone"} is typing...` : displayPartner?.headline || displayPartner?.college || formatPresenceLabel(activePresence)}</p>
+                                <p className="truncate text-[12px] mt-0.5" style={{ color: isPartnerTyping ? "var(--primary)" : "var(--text-muted)" }}>
+                                    {isPartnerTyping ? `${displayPartner?.name || "Someone"} is typing…` : displayPartner?.headline || displayPartner?.college || formatPresenceLabel(activePresence)}
+                                </p>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10"><Phone size={15} /></button>
-                                <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10"><Video size={15} /></button>
-                                <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10"><MoreHorizontal size={15} /></button>
+                            <div className="flex items-center gap-1.5">
+                                <button className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)", color: "var(--text-sub)" }} title="Voice call"><Phone size={14} /></button>
+                                <button className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)", color: "var(--text-sub)" }} title="Video call"><Video size={14} /></button>
+                                <button className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)", color: "var(--text-sub)" }} title="More options"><MoreHorizontal size={14} /></button>
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto px-5 py-5 scrollbar-thin">
+                        {/* Messages area */}
+                        <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: "thin" }}>
                             {loadingMsgs ? (
                                 <div className="flex justify-center py-10">
-                                    <Loader2 size={18} className="animate-spin text-indigo-300" />
+                                    <Loader2 size={18} className="animate-spin" style={{ color: "var(--primary-light)" }} />
                                 </div>
                             ) : null}
 
                             {!loadingMsgs && Object.entries(dayGroups).map(([day, groupedMessages]) => (
-                                <div key={day} className="mb-6">
-                                    <div className="mb-4 flex items-center gap-3">
-                                        <div className="h-px flex-1 bg-white/10" />
-                                        <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{day}</span>
-                                        <div className="h-px flex-1 bg-white/10" />
+                                <div key={day} className="mb-5">
+                                    {/* Day separator */}
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="h-px flex-1" style={{ background: "var(--border)" }} />
+                                        <span className="rounded-full px-3 py-1 text-[11px] font-semibold" style={{ background: "var(--surface-soft)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+                                            {day}
+                                        </span>
+                                        <div className="h-px flex-1" style={{ background: "var(--border)" }} />
                                     </div>
 
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {groupedMessages.map((message) => {
                                             const isMe = String(message.sender?._id ?? message.sender) === String(user?._id);
                                             const showSeen = isMe && latestReadOwnMessageId && String(latestReadOwnMessageId) === String(message._id);
@@ -602,24 +637,23 @@ export default function Messages() {
                                             return (
                                                 <motion.div
                                                     key={message._id}
-                                                    initial={{ opacity: 0, y: 6 }}
+                                                    initial={{ opacity: 0, y: 5 }}
                                                     animate={{ opacity: 1, y: 0 }}
                                                     className={`flex ${isMe ? "justify-end" : "justify-start"}`}
                                                 >
-                                                    <div className={`max-w-[78%] rounded-3xl px-4 py-3 shadow-lg ${isMe ? "rounded-br-md" : "rounded-bl-md"}`}
-                                                        style={isMe
-                                                            ? { background: "linear-gradient(135deg, #6366f1, #4338ca)", color: "white" }
-                                                            : { background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "1px solid rgba(255,255,255,0.08)" }}
-                                                    >
-                                                        <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">{message.content}</p>
-                                                        <div className={`mt-2 text-[10px] opacity-70 ${isMe ? "text-right" : "text-left"}`}>
-                                                            {timeStr(message.createdAt)}
+                                                    <div className="max-w-[72%]">
+                                                        <div
+                                                            className={`rounded-2xl px-4 py-2.5 ${isMe ? "rounded-br-md" : "rounded-bl-md"}`}
+                                                            style={isMe
+                                                                ? { background: "var(--primary)", color: "#fff" }
+                                                                : { background: "var(--surface-soft)", color: "var(--text-main)", border: "1px solid var(--border)" }}
+                                                        >
+                                                            <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">{message.content}</p>
                                                         </div>
-                                                        {isMe ? (
-                                                            <div className="mt-1 text-[10px] opacity-70 text-right">
-                                                                {showSeen ? `Seen ${timeStr(message.readAt)}` : deliveryStatusLabel(message)}
-                                                            </div>
-                                                        ) : null}
+                                                        <div className={`mt-1 flex items-center gap-1.5 text-[11px] ${isMe ? "justify-end" : "justify-start"}`} style={{ color: "var(--text-muted)" }}>
+                                                            <span>{timeStr(message.createdAt)}</span>
+                                                            {isMe && <span>· {showSeen ? `Seen ${timeStr(message.readAt)}` : deliveryStatusLabel(message)}</span>}
+                                                        </div>
                                                     </div>
                                                 </motion.div>
                                             );
@@ -628,21 +662,22 @@ export default function Messages() {
                                 </div>
                             ))}
 
+                            {/* Typing indicator */}
                             <AnimatePresence>
                                 {isPartnerTyping ? (
                                     <motion.div
-                                        initial={{ opacity: 0, y: 8 }}
+                                        initial={{ opacity: 0, y: 6 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: 8 }}
-                                        className="mb-4 flex justify-start"
+                                        exit={{ opacity: 0, y: 6 }}
+                                        className="flex justify-start mb-3"
                                     >
-                                        <div className="rounded-3xl rounded-bl-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+                                        <div className="rounded-2xl rounded-bl-md px-4 py-2.5 text-[13px]" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)", color: "var(--text-sub)" }}>
                                             <div className="flex items-center gap-2">
                                                 <span>{displayPartner?.name || "Someone"} is typing</span>
-                                                <span className="flex items-center gap-1">
-                                                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300 [animation-delay:-0.2s]" />
-                                                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300 [animation-delay:-0.1s]" />
-                                                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-300" />
+                                                <span className="flex items-center gap-0.5">
+                                                    <span className="h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:-0.2s]" style={{ background: "var(--text-muted)" }} />
+                                                    <span className="h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:-0.1s]" style={{ background: "var(--text-muted)" }} />
+                                                    <span className="h-1.5 w-1.5 animate-bounce rounded-full" style={{ background: "var(--text-muted)" }} />
                                                 </span>
                                             </div>
                                         </div>
@@ -653,17 +688,19 @@ export default function Messages() {
                             <div ref={messagesEndRef} />
                         </div>
 
-                        <div className="border-t border-white/10 px-4 py-4">
-                            <div className="flex items-end gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-3">
-                                <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-slate-400 transition-colors hover:bg-white/10 hover:text-amber-300">
+                        {/* Message input */}
+                        <div className="px-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+                            <div className="flex items-end gap-2 rounded-xl px-3 py-2" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}>
+                                <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors" style={{ color: "var(--text-muted)" }} title="Emoji">
                                     <Smile size={16} />
                                 </button>
-                                <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-slate-400 transition-colors hover:bg-white/10 hover:text-indigo-300">
+                                <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors" style={{ color: "var(--text-muted)" }} title="Attach">
                                     <Paperclip size={15} />
                                 </button>
                                 <textarea
-                                    className="min-h-10 max-h-32 flex-1 resize-none bg-transparent py-2 text-[13.5px] text-white outline-none placeholder:text-slate-500"
-                                    placeholder={`Message ${displayPartner?.name || "this conversation"}`}
+                                    className="min-h-[36px] max-h-32 flex-1 resize-none bg-transparent py-1.5 text-[14px] outline-none leading-relaxed"
+                                    style={{ color: "var(--text-main)" }}
+                                    placeholder={`Message ${displayPartner?.name || "this conversation"}…`}
                                     value={input}
                                     onChange={(event) => handleInputChange(event.target.value)}
                                     onKeyDown={(event) => {
@@ -675,71 +712,79 @@ export default function Messages() {
                                 />
                                 <button
                                     type="button"
-                                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-500 text-white transition-all duration-200 hover:bg-indigo-400"
                                     disabled={!input.trim() || sending}
-                                    style={!input.trim() || sending ? { opacity: 0.45, cursor: "not-allowed" } : {}}
                                     onClick={handleSend}
+                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all"
+                                    style={input.trim() && !sending
+                                        ? { background: "var(--primary)", color: "#fff" }
+                                        : { background: "var(--surface-hover)", color: "var(--text-muted)" }}
                                 >
-                                    {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                                    {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
                                 </button>
                             </div>
+                            <p className="mt-1.5 text-center text-[11px]" style={{ color: "var(--text-faint)" }}>Enter to send · Shift+Enter for new line</p>
                         </div>
                     </>
                 )}
             </section>
 
-            <aside className="hidden min-h-0 flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/65 xl:flex">
-                <div className="border-b border-white/10 px-5 py-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Conversation info</p>
-                    <h3 className="mt-2 text-base font-semibold text-white">{displayPartner?.name || "No active chat"}</h3>
+            {/* ── Info panel ── */}
+            <aside className="hidden min-h-0 flex-col overflow-hidden rounded-xl 2xl:flex" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+                <div className="px-4 py-3.5" style={{ borderBottom: "1px solid var(--border)" }}>
+                    <p className="text-[13px] font-bold" style={{ color: "var(--text-main)" }}>Conversation info</p>
+                    <p className="text-[12px] mt-0.5" style={{ color: "var(--text-muted)" }}>{displayPartner?.name || "No active chat"}</p>
                 </div>
 
-                <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" style={{ scrollbarWidth: "thin" }}>
                     {displayPartner ? (
                         <>
-                            <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4 text-center">
+                            {/* Profile card */}
+                            <div className="rounded-xl p-4 text-center" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}>
                                 <img
-                                    src={displayPartner.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayPartner.name)}&background=6366f1&color=fff&bold=true&size=120`}
-                                    className="mx-auto h-20 w-20 rounded-3xl object-cover"
+                                    src={displayPartner.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayPartner.name)}&background=0a66c2&color=fff&bold=true&size=120`}
+                                    className="mx-auto h-16 w-16 rounded-xl object-cover mb-3"
                                     alt={displayPartner.name}
                                 />
-                                <p className="mt-4 text-sm font-semibold text-white">{displayPartner.name}</p>
-                                <p className="mt-1 text-xs text-slate-400">@{displayPartner.username}</p>
-                                <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={activePresence?.status === "online"
-                                    ? { color: "#86efac" }
-                                    : activePresence?.status === "idle"
-                                        ? { color: "#fde68a" }
-                                        : { color: "#cbd5e1" }}>
+                                <p className="text-[15px] font-bold" style={{ color: "var(--text-main)" }}>{displayPartner.name}</p>
+                                <p className="text-[12px] mt-0.5" style={{ color: "var(--text-muted)" }}>@{displayPartner.username}</p>
+                                <span
+                                    className="inline-block mt-2 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                                    style={activePresence?.status === "online"
+                                        ? { background: "var(--success-bg)", color: "var(--success)" }
+                                        : activePresence?.status === "idle"
+                                            ? { background: "var(--warning-bg)", color: "var(--warning)" }
+                                            : { background: "var(--surface-hover)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
                                     {formatPresenceLabel(activePresence)}
-                                </p>
-                                <p className="mt-3 text-xs leading-6 text-slate-400">{displayPartner.headline || displayPartner.college || "Student Community member"}</p>
+                                </span>
+                                {(displayPartner.headline || displayPartner.college) && (
+                                    <p className="mt-3 text-[12px] leading-relaxed" style={{ color: "var(--text-sub)" }}>
+                                        {displayPartner.headline || displayPartner.college}
+                                    </p>
+                                )}
                             </div>
 
-                            <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Thread stats</p>
-                                <div className="mt-4 space-y-3 text-sm">
-                                    <div className="flex items-center justify-between text-slate-300">
-                                        <span>Total messages</span>
-                                        <span className="font-semibold text-white">{messages.length}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-slate-300">
-                                        <span>Unread</span>
-                                        <span className="font-semibold text-white">{activeConvo?.unreadCount || 0}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-slate-300">
-                                        <span>Realtime</span>
-                                        <span className="font-semibold text-emerald-300">Socket.io</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-slate-300">
-                                        <span>Presence</span>
-                                        <span className="font-semibold text-white capitalize">{activePresence?.status || "offline"}</span>
-                                    </div>
+                            {/* Thread stats */}
+                            <div className="rounded-xl p-4" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}>
+                                <p className="text-[12px] font-bold mb-3" style={{ color: "var(--text-muted)" }}>Thread stats</p>
+                                <div className="space-y-2.5">
+                                    {[
+                                        { label: "Total messages", value: messages.length, color: "var(--text-main)" },
+                                        { label: "Unread", value: activeConvo?.unreadCount || 0, color: "var(--text-main)" },
+                                        { label: "Realtime", value: "Socket.io", color: "var(--success)" },
+                                        { label: "Presence", value: activePresence?.status || "offline", color: "var(--text-main)" },
+                                    ].map(({ label, value, color }) => (
+                                        <div key={label} className="flex items-center justify-between">
+                                            <span className="text-[13px]" style={{ color: "var(--text-sub)" }}>{label}</span>
+                                            <span className="text-[13px] font-semibold capitalize" style={{ color }}>{value}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </>
                     ) : (
-                        <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4 text-sm text-slate-400">
-                            Select a conversation to view thread details.
+                        <div className="rounded-xl p-4 text-center" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}>
+                            <MessageSquareText className="mx-auto h-8 w-8 mb-3" style={{ color: "var(--text-faint)" }} />
+                            <p className="text-[13px]" style={{ color: "var(--text-sub)" }}>Select a conversation to view details.</p>
                         </div>
                     )}
                 </div>

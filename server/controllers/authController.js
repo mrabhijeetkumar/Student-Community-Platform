@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import VerificationToken from "../models/VerificationToken.js";
+import PasswordResetToken from "../models/PasswordResetToken.js";
 import {
     assertAllowedGmail,
     buildAuthResponse,
@@ -9,18 +10,24 @@ import {
     ensureUniqueUsername,
     hashOtp,
     hashPassword,
-    normalizeEmail
+    normalizeEmail,
+    validatePasswordStrength
 } from "../services/authService.js";
-import { sendRegistrationOtpEmail } from "../services/emailService.js";
+import { sendRegistrationOtpEmail, sendPasswordResetOtpEmail } from "../services/emailService.js";
 import { verifyGoogleToken } from "../services/googleService.js";
 
 export const requestRegistrationOtp = async (req, res) => {
     try {
         const { name, email, password } = req.body;
         const normalizedEmail = assertAllowedGmail(email);
+        const passwordValidation = validatePasswordStrength(password);
 
-        if (await User.exists({ email: normalizedEmail })) {
-            return res.status(409).json({ message: "An account already exists for this email" });
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ message: passwordValidation.message });
+        }
+
+        if (await User.exists({ email: normalizedEmail, role: "student" })) {
+            return res.status(409).json({ message: "A student account already exists for this email" });
         }
 
         const otp = createOtp();
@@ -99,7 +106,8 @@ export const registerUser = async (req, res) => {
 export const loginUser = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
-        const user = await User.findOne({ email }).select("+password");
+        const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
+        const user = await User.findOne({ email, role }).select("+password");
 
         if (!user) {
             return res.status(400).json({ message: "Invalid email or password" });
@@ -136,7 +144,7 @@ export const loginWithGoogle = async (req, res) => {
         }
 
         const email = assertAllowedGmail(payload.email);
-        let user = await User.findOne({ email });
+        let user = await User.findOne({ email, role: "student" });
 
         if (!user) {
             const username = await ensureUniqueUsername(payload.name || email.split("@")[0]);
@@ -144,6 +152,7 @@ export const loginWithGoogle = async (req, res) => {
                 username,
                 name: payload.name,
                 email,
+                role: "student",
                 googleId: payload.sub,
                 authProvider: "google",
                 isEmailVerified: true,
@@ -169,4 +178,86 @@ export const loginWithGoogle = async (req, res) => {
 
 export const getSession = async (req, res) => {
     res.json({ user: buildSafeUser(req.user) });
+};
+
+export const forgotPassword = async (req, res) => {
+    try {
+        const email = normalizeEmail(req.body.email);
+        const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
+        const user = await User.findOne({ email, role });
+
+        if (!user) {
+            return res.status(200).json({ message: "If an account exists with this email, an OTP has been sent." });
+        }
+
+        if (user.authProvider === "google") {
+            return res.status(400).json({ message: "This account uses Google sign-in. Please login with Google." });
+        }
+
+        const otp = createOtp();
+
+        await PasswordResetToken.findOneAndUpdate(
+            { email, role },
+            {
+                email,
+                role,
+                otpHash: hashOtp(otp),
+                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+                attempts: 0
+            },
+            { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+        );
+
+        const delivery = await sendPasswordResetOtpEmail({ email, otp });
+
+        res.status(200).json({
+            message: "If an account exists with this email, an OTP has been sent.",
+            previewOtp: delivery.preview && process.env.NODE_ENV !== "production" ? otp : undefined
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const resetPassword = async (req, res) => {
+    try {
+        const email = normalizeEmail(req.body.email);
+        const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
+        const { otp, newPassword } = req.body;
+        const passwordValidation = validatePasswordStrength(newPassword);
+
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ message: passwordValidation.message });
+        }
+
+        const resetToken = await PasswordResetToken.findOne({ email, role });
+
+        if (!resetToken || resetToken.expiresAt < new Date()) {
+            return res.status(400).json({ message: "OTP expired. Request a new one." });
+        }
+
+        if (resetToken.attempts >= 5) {
+            return res.status(429).json({ message: "Too many invalid attempts. Request a new OTP." });
+        }
+
+        if (resetToken.otpHash !== hashOtp(otp)) {
+            resetToken.attempts += 1;
+            await resetToken.save();
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+
+        const user = await User.findOne({ email, role });
+        if (!user) {
+            return res.status(400).json({ message: "Account not found" });
+        }
+
+        user.password = await hashPassword(newPassword);
+        await user.save();
+
+        await PasswordResetToken.deleteOne({ _id: resetToken._id });
+
+        res.status(200).json({ message: "Password reset successful. You can now log in." });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 };

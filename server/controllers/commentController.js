@@ -1,6 +1,7 @@
 import Comment from "../models/Comment.js";
 import Post from "../models/Post.js";
 import { createNotification } from "../services/notificationService.js";
+import { broadcastFeedEvent } from "../socket/socket.js";
 
 const buildCommentTree = (comments) => {
     const byId = new Map();
@@ -74,6 +75,7 @@ export const createComment = async (req, res) => {
             });
         }
 
+        broadcastFeedEvent("comment:new", { postId: post._id.toString(), comment, commentsCount: post.commentsCount });
         res.status(201).json(comment);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -111,6 +113,7 @@ export const deleteComment = async (req, res) => {
             await Comment.findByIdAndUpdate(comment.parentComment, { $inc: { repliesCount: -1 } });
         }
 
+        broadcastFeedEvent("comment:deleted", { postId: comment.postId.toString(), commentId: comment._id.toString() });
         res.json({ message: "Comment deleted" });
     } catch (error) {
         res.status(500).json({ message: error.message });
