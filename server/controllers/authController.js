@@ -59,7 +59,7 @@ export const requestRegistrationOtp = async (req, res) => {
             previewOtp: delivery.preview && process.env.NODE_ENV !== "production" ? otp : undefined
         });
     } catch (error) {
-        res.status(error.statusCode || 400).json({ message: error.message });
+        res.status(error.statusCode || 500).json({ message: error.message });
     }
 };
 

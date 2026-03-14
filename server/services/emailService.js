@@ -10,6 +10,32 @@ const buildEmailTimeoutError = () => {
     return error;
 };
 
+const buildEmailServiceUnavailableError = () => {
+    const error = new Error("Email service unavailable right now. Please try again shortly.");
+    error.statusCode = 503;
+    return error;
+};
+
+const normalizeMailError = (error) => {
+    if (error?.statusCode) {
+        return error;
+    }
+
+    const message = String(error?.message || "").toLowerCase();
+
+    if (message.includes("connection timeout") || message.includes("timed out") || error?.code === "ETIMEDOUT") {
+        return buildEmailServiceUnavailableError();
+    }
+
+    if (message.includes("invalid login") || error?.code === "EAUTH") {
+        const authError = new Error("SMTP authentication failed. Please contact support.");
+        authError.statusCode = 503;
+        return authError;
+    }
+
+    return buildEmailServiceUnavailableError();
+};
+
 const sendMailWithTimeout = async (mailer, mailOptions) => {
     let timer;
 
@@ -34,16 +60,35 @@ const getTransporter = () => {
         return null;
     }
 
-    transporter = nodemailer.createTransport({
-        service: process.env.SMTP_SERVICE || "gmail",
-        connectionTimeout: SMTP_TIMEOUT_MS,
-        greetingTimeout: SMTP_TIMEOUT_MS,
-        socketTimeout: SMTP_TIMEOUT_MS,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-        }
-    });
+    const explicitHost = process.env.SMTP_HOST;
+    const smtpPort = Number(process.env.SMTP_PORT || 465);
+    const smtpSecure = String(process.env.SMTP_SECURE || "true").toLowerCase() === "true";
+
+    transporter = nodemailer.createTransport(
+        explicitHost
+            ? {
+                host: explicitHost,
+                port: smtpPort,
+                secure: smtpSecure,
+                connectionTimeout: SMTP_TIMEOUT_MS,
+                greetingTimeout: SMTP_TIMEOUT_MS,
+                socketTimeout: SMTP_TIMEOUT_MS,
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                }
+            }
+            : {
+                service: process.env.SMTP_SERVICE || "gmail",
+                connectionTimeout: SMTP_TIMEOUT_MS,
+                greetingTimeout: SMTP_TIMEOUT_MS,
+                socketTimeout: SMTP_TIMEOUT_MS,
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                }
+            }
+    );
 
     return transporter;
 };
@@ -66,12 +111,16 @@ export const sendRegistrationOtpEmail = async ({ email, name, otp }) => {
         return { preview: true };
     }
 
-    await sendMailWithTimeout(mailer, {
-        from: process.env.SMTP_FROM || process.env.SMTP_USER,
-        to: email,
-        subject,
-        html
-    });
+    try {
+        await sendMailWithTimeout(mailer, {
+            from: process.env.SMTP_FROM || process.env.SMTP_USER,
+            to: email,
+            subject,
+            html
+        });
+    } catch (error) {
+        throw normalizeMailError(error);
+    }
 
     return { preview: false };
 };
@@ -94,12 +143,16 @@ export const sendPasswordResetOtpEmail = async ({ email, otp }) => {
         return { preview: true };
     }
 
-    await sendMailWithTimeout(mailer, {
-        from: process.env.SMTP_FROM || process.env.SMTP_USER,
-        to: email,
-        subject,
-        html
-    });
+    try {
+        await sendMailWithTimeout(mailer, {
+            from: process.env.SMTP_FROM || process.env.SMTP_USER,
+            to: email,
+            subject,
+            html
+        });
+    } catch (error) {
+        throw normalizeMailError(error);
+    }
 
     return { preview: false };
 };
