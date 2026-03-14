@@ -1,6 +1,29 @@
 import nodemailer from "nodemailer";
 
 let transporter;
+const EMAIL_SEND_TIMEOUT_MS = Number(process.env.EMAIL_SEND_TIMEOUT_MS || 12000);
+const SMTP_TIMEOUT_MS = Number(process.env.SMTP_TIMEOUT_MS || 10000);
+
+const buildEmailTimeoutError = () => {
+    const error = new Error("Email service timeout. Please retry in a few seconds.");
+    error.statusCode = 503;
+    return error;
+};
+
+const sendMailWithTimeout = async (mailer, mailOptions) => {
+    let timer;
+
+    try {
+        return await Promise.race([
+            mailer.sendMail(mailOptions),
+            new Promise((_, reject) => {
+                timer = setTimeout(() => reject(buildEmailTimeoutError()), EMAIL_SEND_TIMEOUT_MS);
+            })
+        ]);
+    } finally {
+        clearTimeout(timer);
+    }
+};
 
 const getTransporter = () => {
     if (transporter) {
@@ -13,6 +36,9 @@ const getTransporter = () => {
 
     transporter = nodemailer.createTransport({
         service: process.env.SMTP_SERVICE || "gmail",
+        connectionTimeout: SMTP_TIMEOUT_MS,
+        greetingTimeout: SMTP_TIMEOUT_MS,
+        socketTimeout: SMTP_TIMEOUT_MS,
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS
@@ -40,7 +66,7 @@ export const sendRegistrationOtpEmail = async ({ email, name, otp }) => {
         return { preview: true };
     }
 
-    await mailer.sendMail({
+    await sendMailWithTimeout(mailer, {
         from: process.env.SMTP_FROM || process.env.SMTP_USER,
         to: email,
         subject,
@@ -68,7 +94,7 @@ export const sendPasswordResetOtpEmail = async ({ email, otp }) => {
         return { preview: true };
     }
 
-    await mailer.sendMail({
+    await sendMailWithTimeout(mailer, {
         from: process.env.SMTP_FROM || process.env.SMTP_USER,
         to: email,
         subject,

@@ -8,6 +8,7 @@ const API_BASE_URL = normalizeApiBaseUrl(
     import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL
 );
 const STORAGE_KEY = "student-community-auth";
+const API_REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000);
 
 function withApiPrefix(path) {
     if (path === "/api" || path.startsWith("/api/")) {
@@ -39,15 +40,30 @@ function getStoredToken() {
 async function request(path, options = {}) {
     const { headers = {}, ...restOptions } = options;
     const storedToken = getStoredToken();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
 
-    const response = await fetch(`${API_BASE_URL}${withApiPrefix(path)}`, {
-        ...restOptions,
-        headers: {
-            "Content-Type": "application/json",
-            ...(storedToken && !headers.Authorization ? { Authorization: `Bearer ${storedToken}` } : {}),
-            ...headers
+    let response;
+
+    try {
+        response = await fetch(`${API_BASE_URL}${withApiPrefix(path)}`, {
+            ...restOptions,
+            signal: controller.signal,
+            headers: {
+                "Content-Type": "application/json",
+                ...(storedToken && !headers.Authorization ? { Authorization: `Bearer ${storedToken}` } : {}),
+                ...headers
+            }
+        });
+    } catch (error) {
+        if (error.name === "AbortError") {
+            throw new Error("Request timeout. Please try again.");
         }
-    });
+
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 
     const data = await response.json().catch(() => ({}));
 
