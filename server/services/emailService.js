@@ -60,35 +60,27 @@ const getTransporter = () => {
         return null;
     }
 
+    const smtpService = (process.env.SMTP_SERVICE || "gmail").toLowerCase();
     const explicitHost = process.env.SMTP_HOST;
-    const smtpPort = Number(process.env.SMTP_PORT || 465);
-    const smtpSecure = String(process.env.SMTP_SECURE || "true").toLowerCase() === "true";
+    const resolvedHost = explicitHost || (smtpService === "gmail" ? "smtp.gmail.com" : "");
 
-    transporter = nodemailer.createTransport(
-        explicitHost
-            ? {
-                host: explicitHost,
-                port: smtpPort,
-                secure: smtpSecure,
-                connectionTimeout: SMTP_TIMEOUT_MS,
-                greetingTimeout: SMTP_TIMEOUT_MS,
-                socketTimeout: SMTP_TIMEOUT_MS,
-                auth: {
-                    user: process.env.SMTP_USER,
-                    pass: process.env.SMTP_PASS
-                }
-            }
-            : {
-                service: process.env.SMTP_SERVICE || "gmail",
-                connectionTimeout: SMTP_TIMEOUT_MS,
-                greetingTimeout: SMTP_TIMEOUT_MS,
-                socketTimeout: SMTP_TIMEOUT_MS,
-                auth: {
-                    user: process.env.SMTP_USER,
-                    pass: process.env.SMTP_PASS
-                }
-            }
-    );
+    // For Render and many cloud providers, Gmail works more reliably on STARTTLS (587).
+    const defaultPort = resolvedHost === "smtp.gmail.com" ? 587 : 465;
+    const smtpPort = Number(process.env.SMTP_PORT || defaultPort);
+    const defaultSecure = smtpPort === 465;
+    const smtpSecure = String(process.env.SMTP_SECURE || String(defaultSecure)).toLowerCase() === "true";
+
+    transporter = nodemailer.createTransport({
+        ...(resolvedHost ? { host: resolvedHost, port: smtpPort, secure: smtpSecure } : { service: smtpService }),
+        requireTLS: !smtpSecure,
+        connectionTimeout: SMTP_TIMEOUT_MS,
+        greetingTimeout: SMTP_TIMEOUT_MS,
+        socketTimeout: SMTP_TIMEOUT_MS,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+        }
+    });
 
     return transporter;
 };
