@@ -215,7 +215,7 @@ export const forgotPassword = async (req, res) => {
             previewOtp: delivery.preview && process.env.NODE_ENV !== "production" ? otp : undefined
         });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(error.statusCode || 500).json({ message: error.message });
     }
 };
 

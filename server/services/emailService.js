@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 
 let transporter;
+let resolvedSmtpConfig;
 const EMAIL_SEND_TIMEOUT_MS = Number(process.env.EMAIL_SEND_TIMEOUT_MS || 12000);
 const SMTP_TIMEOUT_MS = Number(process.env.SMTP_TIMEOUT_MS || 10000);
 
@@ -14,6 +15,68 @@ const buildEmailServiceUnavailableError = () => {
     const error = new Error("Email service unavailable right now. Please try again shortly.");
     error.statusCode = 503;
     return error;
+};
+
+const buildEmailNotConfiguredError = () => {
+    const error = new Error("Email service is not configured on the server. Please contact support.");
+    error.statusCode = 503;
+    return error;
+};
+
+const readSmtpConfig = () => {
+    if (resolvedSmtpConfig) {
+        return resolvedSmtpConfig;
+    }
+
+    const smtpUser = String(process.env.SMTP_USER || process.env.EMAIL_USER || "").trim();
+    const smtpPass = String(process.env.SMTP_PASS || process.env.EMAIL_PASS || "").replace(/\s+/g, "");
+    const smtpFrom = String(process.env.SMTP_FROM || process.env.EMAIL_FROM || smtpUser).trim();
+    const smtpService = String(process.env.SMTP_SERVICE || "gmail").toLowerCase();
+    const smtpHost = String(process.env.SMTP_HOST || "").trim();
+    const smtpPort = Number(process.env.SMTP_PORT || (smtpHost === "smtp.gmail.com" ? 587 : 465));
+    const smtpSecure = String(process.env.SMTP_SECURE || String(smtpPort === 465)).toLowerCase() === "true";
+
+    resolvedSmtpConfig = {
+        smtpUser,
+        smtpPass,
+        smtpFrom,
+        smtpService,
+        smtpHost,
+        smtpPort,
+        smtpSecure
+    };
+
+    return resolvedSmtpConfig;
+};
+
+const buildTransportConfig = (smtpConfig) => {
+    if (smtpConfig.smtpHost) {
+        return {
+            host: smtpConfig.smtpHost,
+            port: smtpConfig.smtpPort,
+            secure: smtpConfig.smtpSecure,
+            requireTLS: !smtpConfig.smtpSecure,
+            connectionTimeout: SMTP_TIMEOUT_MS,
+            greetingTimeout: SMTP_TIMEOUT_MS,
+            socketTimeout: SMTP_TIMEOUT_MS,
+            auth: {
+                user: smtpConfig.smtpUser,
+                pass: smtpConfig.smtpPass
+            }
+        };
+    }
+
+    // Keep Gmail's built-in transport behavior as default unless host is explicitly set.
+    return {
+        service: smtpConfig.smtpService,
+        connectionTimeout: SMTP_TIMEOUT_MS,
+        greetingTimeout: SMTP_TIMEOUT_MS,
+        socketTimeout: SMTP_TIMEOUT_MS,
+        auth: {
+            user: smtpConfig.smtpUser,
+            pass: smtpConfig.smtpPass
+        }
+    };
 };
 
 const normalizeMailError = (error) => {
@@ -56,37 +119,22 @@ const getTransporter = () => {
         return transporter;
     }
 
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    const smtpConfig = readSmtpConfig();
+
+    if (!smtpConfig.smtpUser || !smtpConfig.smtpPass) {
+        if (process.env.NODE_ENV === "production") {
+            throw buildEmailNotConfiguredError();
+        }
+
         return null;
     }
 
-    const smtpService = (process.env.SMTP_SERVICE || "gmail").toLowerCase();
-    const explicitHost = process.env.SMTP_HOST;
-    const resolvedHost = explicitHost || (smtpService === "gmail" ? "smtp.gmail.com" : "");
-
-    // For Render and many cloud providers, Gmail works more reliably on STARTTLS (587).
-    const defaultPort = resolvedHost === "smtp.gmail.com" ? 587 : 465;
-    const smtpPort = Number(process.env.SMTP_PORT || defaultPort);
-    const defaultSecure = smtpPort === 465;
-    const smtpSecure = String(process.env.SMTP_SECURE || String(defaultSecure)).toLowerCase() === "true";
-
-    transporter = nodemailer.createTransport({
-        ...(resolvedHost ? { host: resolvedHost, port: smtpPort, secure: smtpSecure } : { service: smtpService }),
-        requireTLS: !smtpSecure,
-        connectionTimeout: SMTP_TIMEOUT_MS,
-        greetingTimeout: SMTP_TIMEOUT_MS,
-        socketTimeout: SMTP_TIMEOUT_MS,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-        }
-    });
+    transporter = nodemailer.createTransport(buildTransportConfig(smtpConfig));
 
     return transporter;
 };
 
 export const sendRegistrationOtpEmail = async ({ email, name, otp }) => {
-    const mailer = getTransporter();
     const subject = "Verify your Student Community Platform account";
     const html = `
         <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
@@ -98,19 +146,28 @@ export const sendRegistrationOtpEmail = async ({ email, name, otp }) => {
         </div>
     `;
 
-    if (!mailer) {
-        console.log(`OTP for ${email}: ${otp}`);
-        return { preview: true };
-    }
-
     try {
+        const mailer = getTransporter();
+
+        if (!mailer) {
+            console.log(`OTP for ${email}: ${otp}`);
+            return { preview: true };
+        }
+
+        const smtpConfig = readSmtpConfig();
         await sendMailWithTimeout(mailer, {
-            from: process.env.SMTP_FROM || process.env.SMTP_USER,
+            from: smtpConfig.smtpFrom,
             to: email,
             subject,
             html
         });
     } catch (error) {
+        console.error("[email] registration OTP send failed", {
+            code: error?.code,
+            command: error?.command,
+            responseCode: error?.responseCode,
+            message: error?.message
+        });
         throw normalizeMailError(error);
     }
 
@@ -118,7 +175,6 @@ export const sendRegistrationOtpEmail = async ({ email, name, otp }) => {
 };
 
 export const sendPasswordResetOtpEmail = async ({ email, otp }) => {
-    const mailer = getTransporter();
     const subject = "Reset your Student Community Platform password";
     const html = `
         <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
@@ -130,19 +186,28 @@ export const sendPasswordResetOtpEmail = async ({ email, otp }) => {
         </div>
     `;
 
-    if (!mailer) {
-        console.log(`Password reset OTP for ${email}: ${otp}`);
-        return { preview: true };
-    }
-
     try {
+        const mailer = getTransporter();
+
+        if (!mailer) {
+            console.log(`Password reset OTP for ${email}: ${otp}`);
+            return { preview: true };
+        }
+
+        const smtpConfig = readSmtpConfig();
         await sendMailWithTimeout(mailer, {
-            from: process.env.SMTP_FROM || process.env.SMTP_USER,
+            from: smtpConfig.smtpFrom,
             to: email,
             subject,
             html
         });
     } catch (error) {
+        console.error("[email] password reset OTP send failed", {
+            code: error?.code,
+            command: error?.command,
+            responseCode: error?.responseCode,
+            message: error?.message
+        });
         throw normalizeMailError(error);
     }
 
