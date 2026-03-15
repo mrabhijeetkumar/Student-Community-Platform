@@ -8,7 +8,7 @@ function deriveSocketUrl() {
         return configuredSocketUrl.replace(/\/$/, "");
     }
 
-    const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL;
+    const configuredApiBaseUrl = import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL;
     return configuredApiBaseUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
 }
 

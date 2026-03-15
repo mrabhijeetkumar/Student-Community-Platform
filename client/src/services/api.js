@@ -5,7 +5,7 @@ function normalizeApiBaseUrl(url) {
 }
 
 const API_BASE_URL = normalizeApiBaseUrl(
-    import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL
+    import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL
 );
 const STORAGE_KEY = "student-community-auth";
 const API_REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000);
