@@ -42,7 +42,7 @@ export const requestRegistrationOtp = async (req, res) => {
 
         if (
             existingUser?.otpLastSentAt
-            && (Date.now() - existingUser.otpLastSentAt.getTime()) < 60 * 1000
+            && (Date.now() - existingUser.otpLastSentAt.getTime()) < 1000
         ) {
             return res.status(429).json({ message: "Please wait before requesting another OTP" });
         }
