@@ -108,6 +108,26 @@ const userSchema = new mongoose.Schema(
             default: null
         },
 
+        otpHash: {
+            type: String,
+            default: null
+        },
+
+        otpExpiresAt: {
+            type: Date,
+            default: null
+        },
+
+        otpAttempts: {
+            type: Number,
+            default: 0
+        },
+
+        otpLastSentAt: {
+            type: Date,
+            default: null
+        },
+
         lastLoginAt: {
             type: Date,
             default: null

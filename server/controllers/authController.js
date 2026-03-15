@@ -1,5 +1,4 @@
 import User from "../models/User.js";
-import VerificationToken from "../models/VerificationToken.js";
 import PasswordResetToken from "../models/PasswordResetToken.js";
 import {
     assertAllowedGmail,
@@ -26,73 +25,108 @@ export const requestRegistrationOtp = async (req, res) => {
             return res.status(400).json({ message: passwordValidation.message });
         }
 
-        if (await User.exists({ email: normalizedEmail, role: "student" })) {
+        const otp = createOtp();
+        const otpHash = hashOtp(otp);
+        const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+        const now = new Date();
+
+        const existingUser = await User.findOne({ email: normalizedEmail, role: "student" }).select("+password");
+
+        if (existingUser?.authProvider === "google") {
+            return res.status(409).json({ message: "This account already exists with Google sign-in" });
+        }
+
+        if (existingUser?.isEmailVerified) {
             return res.status(409).json({ message: "A student account already exists for this email" });
         }
 
-        const otp = createOtp();
-        const username = await ensureUniqueUsername(name || normalizedEmail.split("@")[0]);
+        if (
+            existingUser?.otpLastSentAt
+            && (Date.now() - existingUser.otpLastSentAt.getTime()) < 60 * 1000
+        ) {
+            return res.status(429).json({ message: "Please wait before requesting another OTP" });
+        }
+
         const passwordHash = await hashPassword(password);
 
-        await VerificationToken.findOneAndUpdate(
-            { email: normalizedEmail },
-            {
-                email: normalizedEmail,
-                name,
+        if (existingUser) {
+            existingUser.name = name;
+            existingUser.password = passwordHash;
+            existingUser.authProvider = "local";
+            existingUser.otpHash = otpHash;
+            existingUser.otpExpiresAt = otpExpiresAt;
+            existingUser.otpAttempts = 0;
+            existingUser.otpLastSentAt = now;
+            await existingUser.save();
+        } else {
+            const username = await ensureUniqueUsername(name || normalizedEmail.split("@")[0]);
+
+            await User.create({
                 username,
-                passwordHash,
-                otpHash: hashOtp(otp),
-                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-                attempts: 0
-            },
-            {
-                upsert: true,
-                returnDocument: "after",
-                setDefaultsOnInsert: true
-            }
-        );
+                name,
+                email: normalizedEmail,
+                password: passwordHash,
+                authProvider: "local",
+                isEmailVerified: false,
+                otpHash,
+                otpExpiresAt,
+                otpAttempts: 0,
+                otpLastSentAt: now
+            });
+        }
 
         const delivery = await sendRegistrationOtpEmail({ email: normalizedEmail, name, otp });
+        console.log("OTP sent to:", normalizedEmail);
 
         res.status(200).json({
             message: "OTP sent successfully",
             previewOtp: delivery.preview && process.env.NODE_ENV !== "production" ? otp : undefined
         });
     } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message });
+        console.error("[auth] requestRegistrationOtp failed", {
+            code: error?.code,
+            statusCode: error?.statusCode,
+            message: error?.message
+        });
+
+        if (error?.statusCode) {
+            return res.status(error.statusCode).json({ message: error.message });
+        }
+
+        return res.status(500).json({ message: "OTP sending failed" });
     }
 };
 
 export const registerUser = async (req, res) => {
     try {
         const normalizedEmail = normalizeEmail(req.body.email);
-        const verification = await VerificationToken.findOne({ email: normalizedEmail });
+        const user = await User.findOne({
+            email: normalizedEmail,
+            role: "student",
+            authProvider: "local"
+        }).select("+password");
 
-        if (!verification || verification.expiresAt < new Date()) {
+        if (!user || !user.otpHash || !user.otpExpiresAt || user.otpExpiresAt < new Date()) {
             return res.status(400).json({ message: "OTP expired. Request a new one." });
         }
 
-        if (verification.attempts >= 5) {
+        if (user.otpAttempts >= 5) {
             return res.status(429).json({ message: "Too many invalid OTP attempts" });
         }
 
-        if (verification.otpHash !== hashOtp(req.body.otp)) {
-            verification.attempts += 1;
-            await verification.save();
+        if (user.otpHash !== hashOtp(req.body.otp)) {
+            user.otpAttempts += 1;
+            await user.save();
             return res.status(400).json({ message: "Invalid OTP" });
         }
 
-        const user = await User.create({
-            username: verification.username,
-            name: verification.name,
-            email: verification.email,
-            password: verification.passwordHash,
-            authProvider: "local",
-            isEmailVerified: true,
-            emailVerifiedAt: new Date()
-        });
-
-        await VerificationToken.deleteOne({ _id: verification._id });
+        user.isEmailVerified = true;
+        user.emailVerifiedAt = new Date();
+        user.otpHash = undefined;
+        user.otpExpiresAt = null;
+        user.otpAttempts = 0;
+        user.otpLastSentAt = null;
+        await user.save();
 
         res.status(201).json({
             message: "Registration successful",
@@ -115,6 +149,10 @@ export const loginUser = async (req, res) => {
 
         if (user.authProvider === "google") {
             return res.status(400).json({ message: "Use Google sign-in for this account" });
+        }
+
+        if (!user.isEmailVerified) {
+            return res.status(403).json({ message: "Please verify OTP before logging in" });
         }
 
         const isMatch = await comparePassword(req.body.password, user.password);
@@ -215,7 +253,17 @@ export const forgotPassword = async (req, res) => {
             previewOtp: delivery.preview && process.env.NODE_ENV !== "production" ? otp : undefined
         });
     } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message });
+        console.error("[auth] forgotPassword failed", {
+            code: error?.code,
+            statusCode: error?.statusCode,
+            message: error?.message
+        });
+
+        if (error?.statusCode) {
+            return res.status(error.statusCode).json({ message: error.message });
+        }
+
+        return res.status(500).json({ message: "OTP sending failed" });
     }
 };
 

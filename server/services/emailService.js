@@ -1,9 +1,13 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 let transporter;
-let resolvedSmtpConfig;
+let resendClient;
+let resendClientApiKey = "";
 const EMAIL_SEND_TIMEOUT_MS = Number(process.env.EMAIL_SEND_TIMEOUT_MS || 12000);
 const SMTP_TIMEOUT_MS = Number(process.env.SMTP_TIMEOUT_MS || 10000);
+
+const isProduction = () => process.env.NODE_ENV === "production";
 
 const buildEmailTimeoutError = () => {
     const error = new Error("Email service timeout. Please retry in a few seconds.");
@@ -23,59 +27,37 @@ const buildEmailNotConfiguredError = () => {
     return error;
 };
 
-const readSmtpConfig = () => {
-    if (resolvedSmtpConfig) {
-        return resolvedSmtpConfig;
-    }
+const buildEmailAuthError = () => {
+    const error = new Error("Email provider authentication failed. Please contact support.");
+    error.statusCode = 503;
+    return error;
+};
 
+const readSmtpConfig = () => {
     const smtpUser = String(process.env.SMTP_USER || process.env.EMAIL_USER || "").trim();
     const smtpPass = String(process.env.SMTP_PASS || process.env.EMAIL_PASS || "").replace(/\s+/g, "");
-    const smtpFrom = String(process.env.SMTP_FROM || process.env.EMAIL_FROM || smtpUser).trim();
-    const smtpService = String(process.env.SMTP_SERVICE || "gmail").toLowerCase();
-    const smtpHost = String(process.env.SMTP_HOST || "").trim();
-    const smtpPort = Number(process.env.SMTP_PORT || (smtpHost === "smtp.gmail.com" ? 587 : 465));
-    const smtpSecure = String(process.env.SMTP_SECURE || String(smtpPort === 465)).toLowerCase() === "true";
+    const smtpHost = String(process.env.SMTP_HOST || "smtp.gmail.com").trim();
+    const smtpPort = Number(process.env.SMTP_PORT || 587);
+    const smtpSecure = String(process.env.SMTP_SECURE || "false").toLowerCase() === "true";
+    const smtpFrom = String(process.env.SMTP_FROM || process.env.EMAIL_FROM || `StudentHub <${smtpUser}>`).trim();
 
-    resolvedSmtpConfig = {
+    return {
         smtpUser,
         smtpPass,
         smtpFrom,
-        smtpService,
         smtpHost,
         smtpPort,
         smtpSecure
     };
-
-    return resolvedSmtpConfig;
 };
 
-const buildTransportConfig = (smtpConfig) => {
-    if (smtpConfig.smtpHost) {
-        return {
-            host: smtpConfig.smtpHost,
-            port: smtpConfig.smtpPort,
-            secure: smtpConfig.smtpSecure,
-            requireTLS: !smtpConfig.smtpSecure,
-            connectionTimeout: SMTP_TIMEOUT_MS,
-            greetingTimeout: SMTP_TIMEOUT_MS,
-            socketTimeout: SMTP_TIMEOUT_MS,
-            auth: {
-                user: smtpConfig.smtpUser,
-                pass: smtpConfig.smtpPass
-            }
-        };
-    }
+const readResendConfig = () => {
+    const resendApiKey = String(process.env.RESEND_API_KEY || "").trim();
+    const emailFrom = String(process.env.EMAIL_FROM || process.env.SMTP_FROM || "").trim();
 
-    // Keep Gmail's built-in transport behavior as default unless host is explicitly set.
     return {
-        service: smtpConfig.smtpService,
-        connectionTimeout: SMTP_TIMEOUT_MS,
-        greetingTimeout: SMTP_TIMEOUT_MS,
-        socketTimeout: SMTP_TIMEOUT_MS,
-        auth: {
-            user: smtpConfig.smtpUser,
-            pass: smtpConfig.smtpPass
-        }
+        resendApiKey,
+        emailFrom
     };
 };
 
@@ -91,9 +73,15 @@ const normalizeMailError = (error) => {
     }
 
     if (message.includes("invalid login") || error?.code === "EAUTH") {
-        const authError = new Error("SMTP authentication failed. Please contact support.");
-        authError.statusCode = 503;
-        return authError;
+        return buildEmailAuthError();
+    }
+
+    if (
+        message.includes("api key")
+        || message.includes("unauthorized")
+        || message.includes("forbidden")
+    ) {
+        return buildEmailAuthError();
     }
 
     return buildEmailServiceUnavailableError();
@@ -122,16 +110,92 @@ const getTransporter = () => {
     const smtpConfig = readSmtpConfig();
 
     if (!smtpConfig.smtpUser || !smtpConfig.smtpPass) {
-        if (process.env.NODE_ENV === "production") {
-            throw buildEmailNotConfiguredError();
-        }
-
         return null;
     }
 
-    transporter = nodemailer.createTransport(buildTransportConfig(smtpConfig));
+    transporter = nodemailer.createTransport({
+        host: smtpConfig.smtpHost,
+        port: smtpConfig.smtpPort,
+        secure: smtpConfig.smtpSecure,
+        auth: {
+            user: smtpConfig.smtpUser,
+            pass: smtpConfig.smtpPass
+        },
+        connectionTimeout: SMTP_TIMEOUT_MS,
+        greetingTimeout: SMTP_TIMEOUT_MS,
+        socketTimeout: SMTP_TIMEOUT_MS
+    });
 
     return transporter;
+};
+
+const getResendClient = () => {
+    const resendConfig = readResendConfig();
+
+    if (!resendConfig.resendApiKey || !resendConfig.emailFrom) {
+        throw buildEmailNotConfiguredError();
+    }
+
+    if (!resendClient || resendClientApiKey !== resendConfig.resendApiKey) {
+        resendClient = new Resend(resendConfig.resendApiKey);
+        resendClientApiKey = resendConfig.resendApiKey;
+    }
+
+    return {
+        client: resendClient,
+        emailFrom: resendConfig.emailFrom
+    };
+};
+
+const sendWithResendTimeout = async ({ to, subject, html }) => {
+    const { client, emailFrom } = getResendClient();
+    let timer;
+
+    try {
+        const result = await Promise.race([
+            client.emails.send({
+                from: emailFrom,
+                to,
+                subject,
+                html
+            }),
+            new Promise((_, reject) => {
+                timer = setTimeout(() => reject(buildEmailTimeoutError()), EMAIL_SEND_TIMEOUT_MS);
+            })
+        ]);
+
+        if (result?.error) {
+            const resendError = new Error(result.error.message || "Failed to send email with Resend");
+            resendError.code = result.error.name || "RESEND_ERROR";
+            throw resendError;
+        }
+    } finally {
+        clearTimeout(timer);
+    }
+};
+
+const sendEmail = async ({ email, subject, html }) => {
+    if (isProduction()) {
+        await sendWithResendTimeout({ to: email, subject, html });
+        return { preview: false };
+    }
+
+    const mailer = getTransporter();
+
+    if (!mailer) {
+        console.log("OTP sent to:", email);
+        return { preview: true };
+    }
+
+    const smtpConfig = readSmtpConfig();
+    await sendMailWithTimeout(mailer, {
+        from: smtpConfig.smtpFrom,
+        to: email,
+        subject,
+        html
+    });
+
+    return { preview: false };
 };
 
 export const sendRegistrationOtpEmail = async ({ email, name, otp }) => {
@@ -147,22 +211,10 @@ export const sendRegistrationOtpEmail = async ({ email, name, otp }) => {
     `;
 
     try {
-        const mailer = getTransporter();
-
-        if (!mailer) {
-            console.log(`OTP for ${email}: ${otp}`);
-            return { preview: true };
-        }
-
-        const smtpConfig = readSmtpConfig();
-        await sendMailWithTimeout(mailer, {
-            from: smtpConfig.smtpFrom,
-            to: email,
-            subject,
-            html
-        });
+        return await sendEmail({ email, subject, html });
     } catch (error) {
         console.error("[email] registration OTP send failed", {
+            provider: isProduction() ? "resend" : "smtp",
             code: error?.code,
             command: error?.command,
             responseCode: error?.responseCode,
@@ -170,8 +222,6 @@ export const sendRegistrationOtpEmail = async ({ email, name, otp }) => {
         });
         throw normalizeMailError(error);
     }
-
-    return { preview: false };
 };
 
 export const sendPasswordResetOtpEmail = async ({ email, otp }) => {
@@ -187,22 +237,10 @@ export const sendPasswordResetOtpEmail = async ({ email, otp }) => {
     `;
 
     try {
-        const mailer = getTransporter();
-
-        if (!mailer) {
-            console.log(`Password reset OTP for ${email}: ${otp}`);
-            return { preview: true };
-        }
-
-        const smtpConfig = readSmtpConfig();
-        await sendMailWithTimeout(mailer, {
-            from: smtpConfig.smtpFrom,
-            to: email,
-            subject,
-            html
-        });
+        return await sendEmail({ email, subject, html });
     } catch (error) {
         console.error("[email] password reset OTP send failed", {
+            provider: isProduction() ? "resend" : "smtp",
             code: error?.code,
             command: error?.command,
             responseCode: error?.responseCode,
@@ -210,6 +248,4 @@ export const sendPasswordResetOtpEmail = async ({ email, otp }) => {
         });
         throw normalizeMailError(error);
     }
-
-    return { preview: false };
 };

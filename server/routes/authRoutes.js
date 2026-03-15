@@ -16,32 +16,51 @@ import validateRequest from "../middleware/validateRequest.js";
 
 const router = express.Router();
 
+const sendOtpValidators = [
+    body("name").trim().isLength({ min: 2, max: 80 }).withMessage("Name is required"),
+    body("email").trim().isEmail().withMessage("Valid email required"),
+    body("password")
+        .isString().withMessage("Password is required")
+        .custom((value) => {
+            const result = validatePasswordStrength(value);
+            if (!result.valid) {
+                throw new Error(result.message);
+            }
+            return true;
+        })
+];
+
+const verifyOtpValidators = [
+    body("email").trim().isEmail().withMessage("Valid email required"),
+    body("otp").matches(/^\d{6}$/).withMessage("OTP must be 6 digits")
+];
+
 router.post(
     "/request-otp",
     otpLimiter,
-    [
-        body("name").trim().isLength({ min: 2, max: 80 }).withMessage("Name is required"),
-        body("email").trim().isEmail().withMessage("Valid email required"),
-        body("password")
-            .isString().withMessage("Password is required")
-            .custom((value) => {
-                const result = validatePasswordStrength(value);
-                if (!result.valid) {
-                    throw new Error(result.message);
-                }
-                return true;
-            })
-    ],
+    sendOtpValidators,
+    validateRequest,
+    requestRegistrationOtp
+);
+
+router.post(
+    "/send-otp",
+    otpLimiter,
+    sendOtpValidators,
     validateRequest,
     requestRegistrationOtp
 );
 
 router.post(
     "/register",
-    [
-        body("email").trim().isEmail().withMessage("Valid email required"),
-        body("otp").matches(/^\d{6}$/).withMessage("OTP must be 6 digits")
-    ],
+    verifyOtpValidators,
+    validateRequest,
+    registerUser
+);
+
+router.post(
+    "/verify-otp",
+    verifyOtpValidators,
     validateRequest,
     registerUser
 );
