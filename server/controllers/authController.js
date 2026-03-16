@@ -76,7 +76,6 @@ export const requestRegistrationOtp = async (req, res) => {
         }
 
         const delivery = await sendRegistrationOtpEmail({ email: normalizedEmail, name, otp });
-        console.log("OTP sent to:", normalizedEmail);
 
         res.status(200).json({
             message: "OTP sent successfully"

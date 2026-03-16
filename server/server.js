@@ -47,11 +47,9 @@ connectDB().then(async () => {
                     { $set: { role: "admin" } }
                 );
                 if (result.modifiedCount > 0) {
-                    console.log(`[superadmin] Promoted ${superEmail} to admin`);
                 }
             }
         } catch (err) {
-            console.log(`[superadmin] Skip promotion: ${err.message}`);
         }
     }
 });
@@ -106,7 +104,6 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/communities", communityRoutes);
 app.use("/api/admin", adminRoutes);
 
-// test route
 app.get("/", (req, res) => {
     res.json({
         name: "Student Community Platform API",
@@ -122,5 +119,4 @@ const PORT = process.env.PORT || 5050;
 initializeSocket(server);
 
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
 });
