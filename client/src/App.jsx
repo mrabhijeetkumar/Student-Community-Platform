@@ -14,7 +14,8 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Register = lazy(() => import("./pages/Register"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword")); const Settings = lazy(() => import('./pages/Settings'));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const Settings = lazy(() => import("./pages/Settings"));
 function RouteLoader() {
     return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Loading platform...</div>;
 }
