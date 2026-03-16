@@ -79,8 +79,7 @@ export const requestRegistrationOtp = async (req, res) => {
         console.log("OTP sent to:", normalizedEmail);
 
         res.status(200).json({
-            message: "OTP sent successfully",
-            previewOtp: delivery.preview && process.env.NODE_ENV !== "production" ? otp : undefined
+            message: "OTP sent successfully"
         });
     } catch (error) {
         console.error("[auth] requestRegistrationOtp failed", {
@@ -249,8 +248,7 @@ export const forgotPassword = async (req, res) => {
         const delivery = await sendPasswordResetOtpEmail({ email, otp });
 
         res.status(200).json({
-            message: "If an account exists with this email, an OTP has been sent.",
-            previewOtp: delivery.preview && process.env.NODE_ENV !== "production" ? otp : undefined
+            message: "If an account exists with this email, an OTP has been sent."
         });
     } catch (error) {
         console.error("[auth] forgotPassword failed", {
