@@ -18,6 +18,7 @@ const mobileNav = [
 export default function AppShell() {
     const { user } = useAuth();
     const { unreadCount } = useNotifications();
+    const profilePath = user?.username ? `/profile/${user.username}` : "/profile";
 
     return (
         <div className="relative isolate flex h-dvh overflow-hidden" style={{ background: "var(--bg-base)" }}>
@@ -69,7 +70,7 @@ export default function AppShell() {
                 >
                     {mobileNav.map((item) => {
                         const Icon = item.icon;
-                        const target = item.to === "/profile" ? `/profile/${user?.username}` : item.to;
+                        const target = item.to === "/profile" ? profilePath : item.to;
                         const isAlert = item.to === "/notifications";
 
                         return (
