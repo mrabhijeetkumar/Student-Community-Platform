@@ -277,6 +277,8 @@ export default function Navbar() {
         ? { title: "Profile", sub: "Your identity" }
         : routeMeta[pathname] || { title: "", sub: "" };
 
+    const profilePath = user?.username ? `/profile/${user.username}` : "/profile";
+
     const avatarUrl = user?.profilePhoto ||
         `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "U")}&background=0a66c2&color=fff&bold=true&size=64`;
 
@@ -466,7 +468,7 @@ export default function Navbar() {
                                     </div>
                                     {/* View profile button */}
                                     <button
-                                        onClick={() => { setMeOpen(false); navigate(`/profile/${user?.username}`); }}
+                                        onClick={() => { setMeOpen(false); navigate(profilePath); }}
                                         className="mt-3 w-full py-1.5 rounded-full text-[14px] font-semibold transition-all"
                                         style={{ border: "1.5px solid var(--primary)", color: "var(--primary)", background: "transparent" }}
                                         onMouseEnter={e => e.currentTarget.style.background = "var(--primary-subtle)"}
@@ -505,7 +507,7 @@ export default function Navbar() {
                                 <div style={{ borderTop: "1px solid var(--border)" }}>
                                     <p className="px-4 pt-3 pb-1.5 text-[14px] font-bold" style={{ color: "var(--text-main)" }}>Manage</p>
                                     <button
-                                        onClick={() => { setMeOpen(false); navigate(`/profile/${user?.username}`); }}
+                                        onClick={() => { setMeOpen(false); navigate(profilePath); }}
                                         className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-left transition-colors"
                                         style={{ color: "var(--text-sub)" }}
                                         onMouseEnter={e => e.currentTarget.style.background = "var(--surface-hover)"}

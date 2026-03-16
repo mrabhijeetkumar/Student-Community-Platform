@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import {
     LayoutDashboard, Search, Users,
-    MessageCircle, Bell, User, Zap, LogOut, Plus, BookOpen, Shield, Settings
+    MessageCircle, Bell, User, Zap, LogOut, Plus, Shield, Settings
 } from "lucide-react";
 import { useAuth } from "../context/useAuth.js";
 import { useNotifications } from "../context/useNotifications.js";
@@ -35,6 +35,7 @@ export default function Sidebar() {
     const { user, logout } = useAuth();
     const { unreadCount } = useNotifications();
     const navigate = useNavigate();
+    const profilePath = user?.username ? `/profile/${user.username}` : "/profile";
 
     const avatarUrl = user?.profilePhoto ||
         `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "U")}&background=0a66c2&color=fff&bold=true&size=64`;
@@ -93,7 +94,7 @@ export default function Sidebar() {
                         {group.items.map((item) => (
                             <NavLink
                                 key={item.label}
-                                to={item.to === "/profile" && user?.username ? `/profile/${user.username}` : item.to}
+                                to={item.to === "/profile" ? profilePath : item.to}
                                 className={({ isActive }) =>
                                     `sidebar-item mb-0.5 ${isActive ? "active" : ""}`
                                 }
@@ -157,12 +158,13 @@ export default function Sidebar() {
                 <div
                     className="flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer group transition-all duration-150"
                     style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}
-                    onClick={() => navigate(`/profile/${user?.username}`)}
+                    onClick={() => navigate(profilePath)}
                 >
                     <div className="relative shrink-0">
                         <img
                             src={avatarUrl}
                             className="w-9 h-9 rounded-full object-cover"
+                            alt={`${user?.name || user?.username || "Student"} profile`}
                         />
                         <span
                             className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full"
