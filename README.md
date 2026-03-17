@@ -135,10 +135,9 @@ JWT_SECRET=replace_me
 JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:5173
 GOOGLE_CLIENT_ID=
-SMTP_USER=
-SMTP_PASS=
-SMTP_FROM=
-SMTP_SERVICE=gmail
+BREVO_API_KEY=
+BREVO_SENDER_EMAIL=noreply@studentcommunityplatform.com
+BREVO_SENDER_NAME=Student Community Platform
 ```
 
 Create `client/.env` from `client/.env.example`.
@@ -170,9 +169,9 @@ Backend: `http://localhost:5050`
 
 ### 4. Optional integrations
 
-- Set `SMTP_USER` and `SMTP_PASS` for email OTP delivery.
+- Set `BREVO_API_KEY` to enable verification/password emails via Brevo transactional API.
 - Set `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` to enable Google sign-in.
-- Without SMTP, OTP falls back to preview mode in non-production environments.
+- Without BREVO_API_KEY, email delivery endpoints return a clear configuration error.
 
 ## UI Notes
 
