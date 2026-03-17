@@ -34,4 +34,11 @@ export const validateRuntimeConfig = () => {
     if (process.env.NODE_ENV !== "production" && ["studenthub_secret", "changeme", "secret"].includes(secret)) {
         console.warn("[security] Weak JWT_SECRET detected for development. Use a stronger secret before production deployment.");
     }
+    if (!process.env.CLIENT_URL) {
+        console.warn("[security] CLIENT_URL is not set. Email verification links may be incorrect.");
+    }
+
+    if (!process.env.BREVO_API_KEY) {
+        console.warn("[security] BREVO_API_KEY is missing. Verification and password emails will fail.");
+    }
 };
