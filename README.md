@@ -174,6 +174,7 @@ Backend: `http://localhost:5050`
 - Set `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` to enable Google sign-in.
 - Without BREVO_API_KEY, email delivery endpoints return a clear configuration error.
 - Set `SUPER_ADMIN_EMAIL` to your primary admin (e.g. `abhijeetmehtaji@gmail.com`). Only this primary admin can grant/revoke other admin accounts.
+- Student forgot-password now returns `Email not found` when no student account exists, and admin forgot-password remains restricted to allowed admin emails.
 
 ## UI Notes
 

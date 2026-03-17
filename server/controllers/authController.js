@@ -260,18 +260,10 @@ export const forgotPassword = async (req, res) => {
                 return res.status(403).json({ message: "Admin access is not allowed for this email" });
             }
 
-            return res.status(200).json({
-                message: "If an account exists with this email, an OTP has been sent.",
+            return res.status(404).json({
+                message: "Email not found. Please register first.",
                 otpSent: false
             });
-        }
-
-        if (role === "admin" && user.role !== "admin") {
-            return res.status(403).json({ message: "Admin access is not allowed for this email" });
-        }
-
-        if (role === "admin" && superAdminEmail && email === superAdminEmail && user.role !== "admin") {
-            return res.status(403).json({ message: "Primary admin account is not active yet. Contact support." });
         }
 
         if (role === "admin" && user.role !== "admin") {
