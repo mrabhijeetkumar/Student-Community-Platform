@@ -49,6 +49,12 @@ export default function ForgotPassword() {
         try {
             const res = await forgotPassword({ email, role: isAdmin ? "admin" : "student" });
             if (res.previewOtp) setPreviewOtp(res.previewOtp);
+
+            if (!res.otpSent) {
+                setFeedback(res.message || "Invalid email for this recovery flow");
+                return;
+            }
+
             goStep(2);
         } catch (err) {
             setFeedback(err.message);
@@ -86,6 +92,11 @@ export default function ForgotPassword() {
         setLoading(true);
         try {
             const res = await forgotPassword({ email, role: isAdmin ? "admin" : "student" });
+            if (!res.otpSent) {
+                setFeedback(res.message || "Invalid email for this recovery flow");
+                return;
+            }
+
             if (res.previewOtp) setPreviewOtp(res.previewOtp);
             setFeedback("");
             setOtp("");
