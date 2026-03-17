@@ -274,6 +274,14 @@ export const forgotPassword = async (req, res) => {
             return res.status(403).json({ message: "Primary admin account is not active yet. Contact support." });
         }
 
+        if (role === "admin" && user.role !== "admin") {
+            return res.status(403).json({ message: "Admin access is not allowed for this email" });
+        }
+
+        if (role === "admin" && superAdminEmail && email === superAdminEmail && user.role !== "admin") {
+            return res.status(403).json({ message: "Primary admin account is not active yet. Contact support." });
+        }
+
         if (user.authProvider === "google") {
             return res.status(400).json({ message: "This account uses Google sign-in. Please login with Google." });
         }
