@@ -170,6 +170,7 @@ Backend: `http://localhost:5050`
 ### 4. Optional integrations
 
 - Set `BREVO_API_KEY` to enable verification/password emails via Brevo transactional API.
+- `BREVO_SENDER_EMAIL` must be a **verified sender/domain** in Brevo, otherwise API may accept but inbox delivery can fail.
 - Set `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` to enable Google sign-in.
 - Without BREVO_API_KEY, email delivery endpoints return a clear configuration error.
 

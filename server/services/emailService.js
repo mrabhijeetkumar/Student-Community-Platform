@@ -1,9 +1,9 @@
-const CLIENT_URL = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+const CLIENT_URL = (process.env.CLIENT_URL || "").replace(/\/$/, "");
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 const getSender = () => ({
     name: process.env.BREVO_SENDER_NAME || "Student Community Platform",
-    email: process.env.BREVO_SENDER_EMAIL || "noreply@studentcommunityplatform.com"
+    email: (process.env.BREVO_SENDER_EMAIL || "").trim().toLowerCase()
 });
 
 async function sendTransactionalEmail({ to, subject, htmlContent }) {
@@ -15,6 +15,24 @@ async function sendTransactionalEmail({ to, subject, htmlContent }) {
         };
     }
 
+    if (!CLIENT_URL) {
+        return {
+            success: false,
+            statusCode: 500,
+            message: "CLIENT_URL is not configured"
+        };
+    }
+
+    const sender = getSender();
+
+    if (!sender.email) {
+        return {
+            success: false,
+            statusCode: 500,
+            message: "BREVO_SENDER_EMAIL is not configured"
+        };
+    }
+
     try {
         const response = await fetch(BREVO_API_URL, {
             method: "POST",
@@ -23,18 +41,21 @@ async function sendTransactionalEmail({ to, subject, htmlContent }) {
                 "api-key": process.env.BREVO_API_KEY
             },
             body: JSON.stringify({
-                sender: getSender(),
+                sender,
                 to: [{ email: to }],
                 subject,
                 htmlContent
             })
         });
 
+        const responseBody = await response.json().catch(() => null);
+
         if (!response.ok) {
-            const details = await response.text();
+            const details = responseBody || (await response.text().catch(() => ""));
             console.error("[email] Brevo API request failed", {
                 status: response.status,
                 details,
+                sender: sender.email,
                 to,
                 subject
             });
@@ -46,13 +67,38 @@ async function sendTransactionalEmail({ to, subject, htmlContent }) {
             };
         }
 
-        return { success: true };
+        const messageId = responseBody?.messageId || responseBody?.messageIds?.[0] || null;
+
+        if (!messageId) {
+            console.error("[email] Brevo API returned success without messageId", {
+                to,
+                subject,
+                sender: sender.email,
+                responseBody
+            });
+
+            return {
+                success: false,
+                statusCode: 502,
+                message: "Email provider did not confirm delivery request"
+            };
+        }
+
+        console.info("[email] Brevo queued email", {
+            messageId,
+            to,
+            subject,
+            sender: sender.email
+        });
+
+        return { success: true, messageId };
     } catch (error) {
         console.error("[email] Brevo API error", {
             message: error?.message,
             stack: error?.stack,
             to,
-            subject
+            subject,
+            sender: sender.email
         });
 
         return {

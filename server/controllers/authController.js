@@ -68,7 +68,10 @@ export const requestRegistrationVerification = async (req, res) => {
             });
         }
 
-        res.status(200).json({ message: "Verification link sent successfully" });
+        res.status(200).json({
+            message: "Verification link sent successfully",
+            requestId: delivery.messageId
+        });
     } catch (error) {
         console.error("[auth] requestRegistrationVerification failed", {
             code: error?.code,
