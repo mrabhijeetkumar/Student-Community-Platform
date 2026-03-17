@@ -24,7 +24,7 @@ const verificationTokenSchema = new mongoose.Schema(
             type: String,
             required: true
         },
-        otpHash: {
+        tokenHash: {
             type: String,
             required: true
         },
@@ -36,6 +36,10 @@ const verificationTokenSchema = new mongoose.Schema(
         attempts: {
             type: Number,
             default: 0
+        },
+        lastSentAt: {
+            type: Date,
+            default: null
         }
     },
     { timestamps: true }
