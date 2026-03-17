@@ -173,6 +173,7 @@ Backend: `http://localhost:5050`
 - `BREVO_SENDER_EMAIL` must be a **verified sender/domain** in Brevo, otherwise API may accept but inbox delivery can fail.
 - Set `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` to enable Google sign-in.
 - Without BREVO_API_KEY, email delivery endpoints return a clear configuration error.
+- Set `SUPER_ADMIN_EMAIL` to your primary admin (e.g. `abhijeetmehtaji@gmail.com`). Only this primary admin can grant/revoke other admin accounts.
 
 ## UI Notes
 

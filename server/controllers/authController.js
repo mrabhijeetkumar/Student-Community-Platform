@@ -21,6 +21,15 @@ import { verifyGoogleToken } from "../services/googleService.js";
 const hashVerificationToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
 const createVerificationToken = () => crypto.randomBytes(32).toString("hex");
 
+const getSuperAdminEmail = () => {
+    const raw = process.env.SUPER_ADMIN_EMAIL;
+    if (!raw) {
+        return "";
+    }
+
+    return normalizeEmail(raw);
+};
+
 export const requestRegistrationVerification = async (req, res) => {
     try {
         const { name, email, password } = req.body;
@@ -154,9 +163,18 @@ export const loginUser = async (req, res) => {
         const email = normalizeEmail(req.body.email);
         const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
         const user = await User.findOne({ email, role }).select("+password");
+        const superAdminEmail = getSuperAdminEmail();
 
         if (!user) {
             return res.status(400).json({ message: "Invalid email or password" });
+        }
+
+        if (role === "admin" && user.role !== "admin") {
+            return res.status(403).json({ message: "Admin panel access is restricted" });
+        }
+
+        if (role === "admin" && superAdminEmail && user.email === superAdminEmail && user.role !== "admin") {
+            return res.status(403).json({ message: "Primary admin account is not initialized yet" });
         }
 
         if (user.authProvider === "google") {
@@ -234,10 +252,23 @@ export const forgotPassword = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
         const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
+        const superAdminEmail = getSuperAdminEmail();
         const user = await User.findOne({ email, role });
 
         if (!user) {
+            if (role === "admin") {
+                return res.status(403).json({ message: "Admin access is not allowed for this email" });
+            }
+
             return res.status(200).json({ message: "If an account exists with this email, an OTP has been sent." });
+        }
+
+        if (role === "admin" && user.role !== "admin") {
+            return res.status(403).json({ message: "Admin access is not allowed for this email" });
+        }
+
+        if (role === "admin" && superAdminEmail && email === superAdminEmail && user.role !== "admin") {
+            return res.status(403).json({ message: "Primary admin account is not active yet. Contact support." });
         }
 
         if (user.authProvider === "google") {
@@ -267,7 +298,8 @@ export const forgotPassword = async (req, res) => {
         }
 
         res.status(200).json({
-            message: "If an account exists with this email, an OTP has been sent."
+            message: "If an account exists with this email, an OTP has been sent.",
+            requestId: delivery.messageId
         });
     } catch (error) {
         console.error("[auth] forgotPassword failed", {
@@ -313,6 +345,7 @@ export const resetPassword = async (req, res) => {
         }
 
         const user = await User.findOne({ email, role }).select("+password");
+        const superAdminEmail = getSuperAdminEmail();
         if (!user) {
             await PasswordResetToken.deleteOne({ _id: resetDoc._id });
             return res.status(404).json({ message: "User not found" });
