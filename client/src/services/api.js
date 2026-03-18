@@ -97,6 +97,13 @@ export function requestOtp(payload) {
     return requestVerification(payload);
 }
 
+export function resendVerification(payload) {
+    return request("/auth/resend-verification", {
+        method: "POST",
+        body: JSON.stringify(payload)
+    });
+}
+
 export function verifyRegistration(payload) {
     return request("/auth/verify-registration", {
         method: "POST",
@@ -388,6 +395,13 @@ export function acceptFollowRequest(username, token) {
 
 export function rejectFollowRequest(username, token) {
     return request(`/users/profile/${username}/follow-request`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function removeFollower(username, token) {
+    return request(`/users/profile/${username}/follower`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
     });

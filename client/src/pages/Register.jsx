@@ -12,11 +12,12 @@ const fadeUp = (i) => ({
 });
 
 export default function Register() {
-    const { requestVerification } = useAuth();
+    const { requestVerification, resendVerification } = useAuth();
     const [form, setForm] = useState({ name: "", email: "", password: "" });
     const [feedback, setFeedback] = useState({ tone: "warning", text: "" });
     const [loading, setLoading] = useState(false);
     const [showPass, setShowPass] = useState(false);
+    const [lastVerificationEmail, setLastVerificationEmail] = useState("");
 
     const updateField = (field) => (e) => setForm((s) => ({ ...s, [field]: e.target.value }));
     const setMsg = (tone, text) => setFeedback({ tone, text });
@@ -26,9 +27,23 @@ export default function Register() {
         setLoading(true);
         try {
             const res = await requestVerification({ name: form.name, email: form.email, password: form.password });
+            setLastVerificationEmail(form.email);
             setMsg("success", res.message || "Verification link sent! Check your Gmail inbox.");
         } catch (err) {
             setMsg("warning", err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResend = async () => {
+        if (!lastVerificationEmail || loading) return;
+        setLoading(true);
+        try {
+            const res = await resendVerification({ email: lastVerificationEmail });
+            setMsg("success", res.message || "Verification link resent. Please check your inbox.");
+        } catch (err) {
+            setMsg("warning", err.message || "Could not resend verification email");
         } finally {
             setLoading(false);
         }
@@ -74,6 +89,16 @@ export default function Register() {
                         <button type="submit" disabled={loading} style={{ width: "100%", padding: "12px 0", background: "linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)", color: "#fff", border: "none", borderRadius: 10, fontWeight: 700 }}>
                             {loading ? "Processing..." : <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>Send Verification Link <ArrowRight size={16} /></span>}
                         </button>
+                        {lastVerificationEmail ? (
+                            <button
+                                type="button"
+                                disabled={loading}
+                                onClick={handleResend}
+                                style={{ width: "100%", padding: "10px 0", background: "transparent", color: "var(--primary)", border: "1px solid var(--border)", borderRadius: 10, fontWeight: 700 }}
+                            >
+                                Resend verification email
+                            </button>
+                        ) : null}
                     </form>
                     <div style={{ marginTop: 18 }}>
                         <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Already have an account? </span>

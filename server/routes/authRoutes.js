@@ -6,6 +6,7 @@ import {
     loginUser,
     loginWithGoogle,
     requestRegistrationVerification,
+    resendRegistrationVerification,
     resetPassword,
     verifyRegistrationToken
 } from "../controllers/authController.js";
@@ -48,6 +49,14 @@ router.post(
     sendVerificationValidators,
     validateRequest,
     requestRegistrationVerification
+);
+
+router.post(
+    "/resend-verification",
+    otpLimiter,
+    [body("email").trim().isEmail().withMessage("Valid email required")],
+    validateRequest,
+    resendRegistrationVerification
 );
 
 router.post(

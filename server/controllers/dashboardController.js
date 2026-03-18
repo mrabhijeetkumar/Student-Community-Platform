@@ -34,7 +34,9 @@ export const getUserDashboard = async (req, res) => {
             totalSavedPosts,
             joinedCommunities,
             totalFollowers: req.user.followers.length,
-            totalFollowing: req.user.following.length
+            totalFollowing: req.user.following.length,
+            pendingFollowRequests: req.user.followRequestsReceived?.length || 0,
+            isEmailVerified: Boolean(req.user.isEmailVerified)
         },
         recentActivity: [...recentNotifications, ...recentMessages].sort(
             (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
@@ -249,7 +251,7 @@ export const deleteUserByAdmin = async (req, res) => {
 
         await User.findByIdAndDelete(userId);
         await Post.deleteMany({ author: userId });
-        await Comment.deleteMany({ author: userId });
+        await Comment.deleteMany({ userId });
         await Notification.deleteMany({ userId });
 
         res.json({ message: `Account for ${target.name} deleted` });

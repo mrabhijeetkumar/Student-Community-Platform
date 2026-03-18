@@ -6,6 +6,7 @@ import {
     registerUser as registerUserApi,
     requestOtp as requestOtpApi,
     requestVerification as requestVerificationApi,
+    resendVerification as resendVerificationApi,
     verifyRegistration as verifyRegistrationApi
 } from "../services/api";
 
@@ -107,6 +108,9 @@ export function AuthProvider({ children }) {
             },
             async requestVerification(payload) {
                 return requestVerificationApi(payload);
+            },
+            async resendVerification(payload) {
+                return resendVerificationApi(payload);
             },
             async login(credentials) {
                 const response = await loginUser(credentials);

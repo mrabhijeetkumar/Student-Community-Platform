@@ -179,13 +179,14 @@ export default function Dashboard() {
                                 Welcome back, {user?.name?.split(" ")[0] || "Student"} 👋
                             </p>
                             <p className="text-[13px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-                                Here's your activity overview
+                                Here's your activity overview {dashStats.stats.isEmailVerified ? "• Verified account" : "• Email verification pending"}
                             </p>
                         </div>
                         <div className="flex gap-3 flex-wrap">
-                            {[
+                                {[
                                 { icon: FileText, label: "Posts", value: dashStats.stats.totalPosts, color: "var(--primary)" },
                                 { icon: Users, label: "Followers", value: dashStats.stats.totalFollowers, color: "#0f8e72" },
+                                { icon: UserPlus, label: "Requests", value: dashStats.stats.pendingFollowRequests || 0, color: "#7c3aed" },
                                 { icon: Heart, label: "Saved", value: dashStats.stats.totalSavedPosts, color: "#d96a1c" },
                                 { icon: MessagesSquare, label: "Communities", value: dashStats.stats.joinedCommunities, color: "#10b981" },
                             ].map(({ icon: Icon, label, value, color }) => (
@@ -357,4 +358,3 @@ export default function Dashboard() {
         </div>
     );
 }
-

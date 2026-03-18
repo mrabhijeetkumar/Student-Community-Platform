@@ -15,6 +15,7 @@ import {
     getSuggestedUsers,
     getUserProfile,
     rejectFollowRequest,
+    removeFollower,
     unfollowUser,
     updateCurrentUser
 } from "../controllers/userController.js";
@@ -52,6 +53,7 @@ router.post("/profile/:username/follow", followUser);
 router.delete("/profile/:username/follow", unfollowUser);
 router.post("/profile/:username/follow-request/accept", acceptFollowRequest);
 router.delete("/profile/:username/follow-request", rejectFollowRequest);
+router.delete("/profile/:username/follower", removeFollower);
 router.get("/profile/:username/followers", getUserFollowers);
 router.get("/profile/:username/following", getUserFollowing);
 

@@ -96,6 +96,81 @@ export const requestRegistrationVerification = async (req, res) => {
     }
 };
 
+export const resendRegistrationVerification = async (req, res) => {
+    try {
+        const normalizedEmail = assertAllowedGmail(req.body.email);
+        const pendingToken = await VerificationToken.findOne({ email: normalizedEmail });
+
+        if (pendingToken?.lastSentAt && (Date.now() - new Date(pendingToken.lastSentAt).getTime()) < 60_000) {
+            return res.status(429).json({ message: "Please wait before requesting another verification email" });
+        }
+
+        const existingVerified = await User.findOne({ email: normalizedEmail, role: "student", isEmailVerified: true });
+        if (existingVerified) {
+            return res.status(409).json({ message: "Email is already verified. Please login." });
+        }
+
+        let payloadForToken = null;
+
+        if (pendingToken) {
+            payloadForToken = {
+                name: pendingToken.name,
+                username: pendingToken.username,
+                passwordHash: pendingToken.passwordHash
+            };
+        } else {
+            const existingUser = await User.findOne({ email: normalizedEmail, role: "student" }).select("+password");
+
+            if (!existingUser || existingUser.authProvider === "google" || existingUser.isEmailVerified || !existingUser.password) {
+                return res.status(404).json({
+                    message: "No pending verification found. Please sign up again to request a new verification link."
+                });
+            }
+
+            payloadForToken = {
+                name: existingUser.name,
+                username: existingUser.username,
+                passwordHash: existingUser.password
+            };
+        }
+
+        const rawToken = createVerificationToken();
+        await VerificationToken.findOneAndUpdate(
+            { email: normalizedEmail },
+            {
+                email: normalizedEmail,
+                name: payloadForToken.name,
+                username: payloadForToken.username,
+                passwordHash: payloadForToken.passwordHash,
+                tokenHash: hashVerificationToken(rawToken),
+                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+                attempts: 0,
+                lastSentAt: new Date()
+            },
+            { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+        );
+
+        const delivery = await sendVerificationEmail(normalizedEmail, rawToken);
+
+        if (!delivery.success) {
+            return res.status(delivery.statusCode || 502).json({
+                message: delivery.message || "Unable to send verification email"
+            });
+        }
+
+        return res.status(200).json({
+            message: "Verification link resent successfully",
+            requestId: delivery.messageId
+        });
+    } catch (error) {
+        if (error?.statusCode) {
+            return res.status(error.statusCode).json({ message: error.message });
+        }
+
+        return res.status(500).json({ message: "Verification email sending failed" });
+    }
+};
+
 export const verifyRegistrationToken = async (req, res) => {
     try {
         const token = (req.body?.token || req.query?.token || "").trim();

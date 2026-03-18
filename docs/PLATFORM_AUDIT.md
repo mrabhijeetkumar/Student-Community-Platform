@@ -39,3 +39,8 @@
 - Added dashboard pending-request card with accept/reject and realtime count updates.
 - Added API client helpers for pending requests and remove-follower operation.
 
+## Additional production-hardening updates (2026-03-18)
+- Added dedicated `/api/auth/resend-verification` flow so users can safely request a new verification link without re-submitting password/name payloads.
+- Added backend resend guardrail (60-second throttle per email request) to reduce verification-email spam and replay abuse.
+- Fixed admin user-deletion cleanup bug to remove comments using `userId` (not non-existent `author` field), preventing data-orphan drift.
+- Extended dashboard API stats to include `pendingFollowRequests` and `isEmailVerified` so frontend status reflects true persisted backend state after refresh/redeploy.

@@ -161,8 +161,14 @@ export const followUser = async (req, res) => {
     }
 
     if (targetUser.isPrivate) {
-        req.user.followRequestsSent.push(targetUser._id);
-        targetUser.followRequestsReceived.push(req.user._id);
+        if (!includesUser(req.user.followRequestsSent, targetUser._id)) {
+            req.user.followRequestsSent.push(targetUser._id);
+        }
+
+        if (!includesUser(targetUser.followRequestsReceived, req.user._id)) {
+            targetUser.followRequestsReceived.push(req.user._id);
+        }
+
         await Promise.all([req.user.save(), targetUser.save()]);
 
         await createNotification({
@@ -223,6 +229,31 @@ export const unfollowUser = async (req, res) => {
     });
 };
 
+export const removeFollower = async (req, res) => {
+    const follower = await User.findOne({ username: req.params.username });
+    const currentUser = await User.findById(req.user._id);
+
+    if (!follower || !currentUser) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    const hadFollower = includesUser(currentUser.followers, follower._id);
+
+    currentUser.followers = removeUser(currentUser.followers, follower._id);
+    follower.following = removeUser(follower.following, currentUser._id);
+
+    currentUser.followRequestsReceived = removeUser(currentUser.followRequestsReceived, follower._id);
+    follower.followRequestsSent = removeUser(follower.followRequestsSent, currentUser._id);
+
+    await Promise.all([currentUser.save(), follower.save()]);
+
+    const refreshedUser = await User.findOne({ username: currentUser.username }).select(publicUserSelect);
+    res.json({
+        ...formatProfileResponse(refreshedUser, req.user._id),
+        message: hadFollower ? "Follower removed" : "Updated"
+    });
+};
+
 export const getFollowRequests = async (req, res) => {
     const user = await User.findById(req.user._id)
         .select("followRequestsReceived")
@@ -258,6 +289,15 @@ export const acceptFollowRequest = async (req, res) => {
     }
 
     await Promise.all([currentUser.save(), requester.save()]);
+
+    await createNotification({
+        userId: requester._id,
+        actorId: currentUser._id,
+        type: "follow",
+        title: "Follow request accepted",
+        message: `${currentUser.name} accepted your follow request.`,
+        link: `/profile/${currentUser.username}`
+    });
 
     const refreshedUser = await User.findOne({ username: currentUser.username }).select(publicUserSelect);
     res.json({ ...formatProfileResponse(refreshedUser, req.user._id), message: "Follow request accepted" });
