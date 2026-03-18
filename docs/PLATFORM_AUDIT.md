@@ -43,5 +43,6 @@
 - Added dedicated `/api/auth/resend-verification` flow so users can safely request a new verification link without re-submitting password/name payloads.
 - Added backend resend guardrail (60-second throttle per email request) to reduce verification-email spam and replay abuse.
 - Refactored signup/verification flow so signup creates the user exactly once (`isEmailVerified=false`) and verification only updates that existing record (no second user creation path).
+- Refactored auth to support one account with multiple roles (`roles[]`) and session-scoped `activeRole` so the same email can safely login to both admin and student sections with strict route isolation.
 - Fixed admin user-deletion cleanup bug to remove comments using `userId` (not non-existent `author` field), preventing data-orphan drift.
 - Extended dashboard API stats to include `pendingFollowRequests` and `isEmailVerified` so frontend status reflects true persisted backend state after refresh/redeploy.

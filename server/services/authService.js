@@ -34,7 +34,17 @@ export const hashOtp = (otp) => crypto.createHash("sha256").update(otp).digest("
 
 export const createOtp = () => `${Math.floor(100000 + Math.random() * 900000)}`;
 
-export const buildSafeUser = (user) => ({
+export const getUserRoles = (user) => {
+    if (Array.isArray(user?.roles) && user.roles.length > 0) {
+        return [...new Set(user.roles)];
+    }
+
+    return user?.role ? [user.role] : ["student"];
+};
+
+export const hasRole = (user, role) => getUserRoles(user).includes(role);
+
+export const buildSafeUser = (user, activeRole = null) => ({
     _id: user._id,
     username: user.username,
     name: user.name,
@@ -46,7 +56,8 @@ export const buildSafeUser = (user) => ({
     college: user.college,
     skills: user.skills,
     socialLinks: user.socialLinks,
-    role: user.role,
+    role: activeRole || user.role,
+    roles: getUserRoles(user),
     isPrivate: Boolean(user.isPrivate),
     authProvider: user.authProvider,
     isEmailVerified: user.isEmailVerified,
@@ -56,9 +67,9 @@ export const buildSafeUser = (user) => ({
     updatedAt: user.updatedAt
 });
 
-export const buildAuthResponse = (user) => ({
-    token: generateToken(user),
-    user: buildSafeUser(user)
+export const buildAuthResponse = (user, activeRole = null) => ({
+    token: generateToken(user, activeRole),
+    user: buildSafeUser(user, activeRole)
 });
 
 const sanitizeUsername = (input) => input.toLowerCase().replace(/[^a-z0-9._]/g, "").slice(0, 24);

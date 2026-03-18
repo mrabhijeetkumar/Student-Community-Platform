@@ -40,11 +40,11 @@ connectDB().then(async () => {
     if (superEmail) {
         try {
             // Only promote if there isn't already an admin account with this email
-            const existingAdmin = await User.findOne({ email: superEmail, role: "admin" });
+            const existingAdmin = await User.findOne({ email: superEmail, roles: "admin" });
             if (!existingAdmin) {
                 const result = await User.updateOne(
-                    { email: superEmail, role: { $ne: "admin" } },
-                    { $set: { role: "admin" } }
+                    { email: superEmail },
+                    { $set: { role: "admin" }, $addToSet: { roles: "admin" } }
                 );
                 if (result.modifiedCount > 0) {
                 }

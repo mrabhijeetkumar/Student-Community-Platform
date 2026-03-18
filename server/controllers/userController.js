@@ -2,7 +2,7 @@ import User from "../models/User.js";
 import { createNotification } from "../services/notificationService.js";
 import { buildSafeUser, ensureUniqueUsername, hashPassword, comparePassword, validatePasswordStrength } from "../services/authService.js";
 
-const publicUserSelect = "username name email profilePhoto coverPhoto headline bio college skills socialLinks followers following followRequestsReceived followRequestsSent isPrivate role authProvider isEmailVerified createdAt updatedAt";
+const publicUserSelect = "username name email profilePhoto coverPhoto headline bio college skills socialLinks followers following followRequestsReceived followRequestsSent isPrivate role roles authProvider isEmailVerified createdAt updatedAt";
 
 const normalizeProfileLink = (value) => {
     const trimmedValue = value?.trim() || "";

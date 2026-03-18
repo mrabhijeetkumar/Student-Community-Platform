@@ -8,6 +8,8 @@ import {
     buildSafeUser,
     comparePassword,
     ensureUniqueUsername,
+    getUserRoles,
+    hasRole,
     hashPassword,
     normalizeEmail,
     validatePasswordStrength
@@ -60,6 +62,7 @@ export const requestRegistrationVerification = async (req, res) => {
                 password: await hashPassword(password),
                 authProvider: "local",
                 role: "student",
+                roles: ["student"],
                 isEmailVerified: false
             });
         } else {
@@ -67,6 +70,9 @@ export const requestRegistrationVerification = async (req, res) => {
             targetUser.password = await hashPassword(password);
             targetUser.authProvider = "local";
             targetUser.role = "student";
+            targetUser.roles = getUserRoles(targetUser).includes("student")
+                ? getUserRoles(targetUser)
+                : [...getUserRoles(targetUser), "student"];
             await targetUser.save();
         }
 
@@ -222,18 +228,28 @@ export const loginUser = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
         const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
-        const user = await User.findOne({ email, role }).select("+password");
+        const user = await User.findOne({ email }).select("+password");
         const superAdminEmail = getSuperAdminEmail();
+
+        console.info("[auth] login attempt", {
+            email,
+            requestedRole: role,
+            userFound: Boolean(user)
+        });
 
         if (!user) {
             return res.status(400).json({ message: "Invalid email or password" });
         }
 
-        if (role === "admin" && user.role !== "admin") {
-            return res.status(403).json({ message: "Admin panel access is restricted" });
+        if (!hasRole(user, role)) {
+            return res.status(403).json({
+                message: role === "admin"
+                    ? "Admin panel access is restricted"
+                    : "Student dashboard access is not enabled for this account"
+            });
         }
 
-        if (role === "admin" && superAdminEmail && user.email === superAdminEmail && user.role !== "admin") {
+        if (role === "admin" && superAdminEmail && user.email === superAdminEmail && !hasRole(user, "admin")) {
             return res.status(403).json({ message: "Primary admin account is not initialized yet" });
         }
 
@@ -247,6 +263,13 @@ export const loginUser = async (req, res) => {
 
         const isMatch = await comparePassword(req.body.password, user.password);
 
+        console.info("[auth] login password check", {
+            email,
+            requestedRole: role,
+            roles: getUserRoles(user),
+            passwordMatched: Boolean(isMatch)
+        });
+
         if (!isMatch) {
             return res.status(400).json({ message: "Invalid email or password" });
         }
@@ -256,7 +279,7 @@ export const loginUser = async (req, res) => {
 
         res.json({
             message: "Login successful",
-            ...buildAuthResponse(user)
+            ...buildAuthResponse(user, role)
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -272,7 +295,7 @@ export const loginWithGoogle = async (req, res) => {
         }
 
         const email = assertAllowedGmail(payload.email);
-        let user = await User.findOne({ email, role: "student" });
+        let user = await User.findOne({ email });
 
         if (!user) {
             const username = await ensureUniqueUsername(payload.name || email.split("@")[0]);
@@ -281,6 +304,7 @@ export const loginWithGoogle = async (req, res) => {
                 name: payload.name,
                 email,
                 role: "student",
+                roles: ["student"],
                 googleId: payload.sub,
                 authProvider: "google",
                 isEmailVerified: true,
@@ -293,6 +317,9 @@ export const loginWithGoogle = async (req, res) => {
         user.lastLoginAt = new Date();
         user.googleId = payload.sub;
         user.profilePhoto = user.profilePhoto || payload.picture || "";
+        if (!hasRole(user, "student")) {
+            user.roles = [...getUserRoles(user), "student"];
+        }
         await user.save();
 
         res.json({
@@ -311,26 +338,17 @@ export const getSession = async (req, res) => {
 export const forgotPassword = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
-        const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
         const superAdminEmail = getSuperAdminEmail();
-        const user = await User.findOne({ email, role });
+        const user = await User.findOne({ email });
 
         if (!user) {
-            if (role === "admin") {
-                return res.status(403).json({ message: "Admin access is not allowed for this email" });
-            }
-
             return res.status(404).json({
                 message: "Email not found. Please register first.",
                 otpSent: false
             });
         }
 
-        if (role === "admin" && user.role !== "admin") {
-            return res.status(403).json({ message: "Admin access is not allowed for this email" });
-        }
-
-        if (role === "admin" && superAdminEmail && email === superAdminEmail && user.role !== "admin") {
+        if (superAdminEmail && email === superAdminEmail && !hasRole(user, "admin")) {
             return res.status(403).json({ message: "Primary admin account is not active yet. Contact support." });
         }
 
@@ -341,10 +359,10 @@ export const forgotPassword = async (req, res) => {
         const otp = `${Math.floor(100000 + Math.random() * 900000)}`;
 
         await PasswordResetToken.findOneAndUpdate(
-            { email, role },
+            { email, role: "student" },
             {
                 email,
-                role,
+                role: "student",
                 otpHash: crypto.createHash("sha256").update(otp).digest("hex"),
                 expiresAt: new Date(Date.now() + 10 * 60 * 1000),
                 attempts: 0
@@ -383,7 +401,6 @@ export const forgotPassword = async (req, res) => {
 export const resetPassword = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
-        const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
         const otp = String(req.body.otp || "");
         const { newPassword } = req.body;
 
@@ -392,7 +409,7 @@ export const resetPassword = async (req, res) => {
             return res.status(400).json({ message: passwordValidation.message });
         }
 
-        const resetDoc = await PasswordResetToken.findOne({ email, role });
+        const resetDoc = await PasswordResetToken.findOne({ email, role: "student" });
         if (!resetDoc || resetDoc.expiresAt < new Date()) {
             return res.status(400).json({ message: "OTP expired. Request a new one." });
         }
@@ -408,7 +425,7 @@ export const resetPassword = async (req, res) => {
             return res.status(400).json({ message: "Invalid OTP" });
         }
 
-        const user = await User.findOne({ email, role }).select("+password");
+        const user = await User.findOne({ email }).select("+password");
         const superAdminEmail = getSuperAdminEmail();
         if (!user) {
             await PasswordResetToken.deleteOne({ _id: resetDoc._id });

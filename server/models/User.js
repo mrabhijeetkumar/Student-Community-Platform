@@ -87,6 +87,11 @@ const userSchema = new mongoose.Schema(
             enum: ["student", "admin"],
             default: "student"
         },
+        roles: {
+            type: [String],
+            enum: ["student", "admin"],
+            default: ["student"]
+        },
 
         authProvider: {
             type: String,
@@ -180,5 +185,6 @@ const userSchema = new mongoose.Schema(
 
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ email: 1, role: 1 }, { unique: true });
+userSchema.index({ roles: 1 });
 
 export default mongoose.model("User", userSchema);
