@@ -201,8 +201,12 @@ export const setUserRole = async (req, res) => {
             return res.status(400).json({ message: "Role must be student or admin" });
         }
 
-        // Prevent the superadmin from being demoted by checking env
         const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase().trim();
+
+        if (!superAdminEmail || req.user.email !== superAdminEmail) {
+            return res.status(403).json({ message: "Only the primary admin can grant or revoke admin access" });
+        }
+
         const target = await User.findById(userId).select("email role name");
 
         if (!target) {
