@@ -162,11 +162,11 @@ export const followUser = async (req, res) => {
 
     if (targetUser.isPrivate) {
         if (!includesUser(req.user.followRequestsSent, targetUser._id)) {
-            req.user.followRequestsSent.push(targetUser._id);
+            req.user.followRequestsSent.addToSet(targetUser._id);
         }
 
         if (!includesUser(targetUser.followRequestsReceived, req.user._id)) {
-            targetUser.followRequestsReceived.push(req.user._id);
+            targetUser.followRequestsReceived.addToSet(req.user._id);
         }
 
         await Promise.all([req.user.save(), targetUser.save()]);
@@ -187,8 +187,8 @@ export const followUser = async (req, res) => {
         });
     }
 
-    req.user.following.push(targetUser._id);
-    targetUser.followers.push(req.user._id);
+    req.user.following.addToSet(targetUser._id);
+    targetUser.followers.addToSet(req.user._id);
 
     await Promise.all([req.user.save(), targetUser.save()]);
     await createNotification({
@@ -282,10 +282,10 @@ export const acceptFollowRequest = async (req, res) => {
     requester.followRequestsSent = removeUser(requester.followRequestsSent, currentUser._id);
 
     if (!includesUser(currentUser.followers, requester._id)) {
-        currentUser.followers.push(requester._id);
+        currentUser.followers.addToSet(requester._id);
     }
     if (!includesUser(requester.following, currentUser._id)) {
-        requester.following.push(currentUser._id);
+        requester.following.addToSet(currentUser._id);
     }
 
     await Promise.all([currentUser.save(), requester.save()]);

@@ -2,27 +2,11 @@ import mongoose from "mongoose";
 
 const verificationTokenSchema = new mongoose.Schema(
     {
-        email: {
-            type: String,
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
             required: true,
-            lowercase: true,
-            trim: true,
             unique: true
-        },
-        name: {
-            type: String,
-            required: true,
-            trim: true
-        },
-        username: {
-            type: String,
-            required: true,
-            trim: true,
-            lowercase: true
-        },
-        passwordHash: {
-            type: String,
-            required: true
         },
         tokenHash: {
             type: String,
@@ -44,5 +28,8 @@ const verificationTokenSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+verificationTokenSchema.index({ userId: 1 }, { unique: true });
+verificationTokenSchema.index({ tokenHash: 1 }, { unique: true });
 
 export default mongoose.model("VerificationToken", verificationTokenSchema);

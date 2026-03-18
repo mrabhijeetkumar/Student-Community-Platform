@@ -40,7 +40,7 @@ export const requestRegistrationVerification = async (req, res) => {
             return res.status(400).json({ message: passwordValidation.message });
         }
 
-        const existingUser = await User.findOne({ email: normalizedEmail, role: "student" });
+        const existingUser = await User.findOne({ email: normalizedEmail });
 
         if (existingUser?.authProvider === "google") {
             return res.status(409).json({ message: "This account already exists with Google sign-in" });
@@ -50,17 +50,32 @@ export const requestRegistrationVerification = async (req, res) => {
             return res.status(409).json({ message: "A student account already exists for this email" });
         }
 
-        const passwordHash = await hashPassword(password);
-        const username = await ensureUniqueUsername(name || normalizedEmail.split("@")[0]);
+        let targetUser = existingUser;
+        if (!targetUser) {
+            const username = await ensureUniqueUsername(name || normalizedEmail.split("@")[0]);
+            targetUser = await User.create({
+                username,
+                name,
+                email: normalizedEmail,
+                password: await hashPassword(password),
+                authProvider: "local",
+                role: "student",
+                isEmailVerified: false
+            });
+        } else {
+            targetUser.name = name;
+            targetUser.password = await hashPassword(password);
+            targetUser.authProvider = "local";
+            targetUser.role = "student";
+            await targetUser.save();
+        }
+
         const rawToken = createVerificationToken();
 
         await VerificationToken.findOneAndUpdate(
-            { email: normalizedEmail },
+            { userId: targetUser._id },
             {
-                email: normalizedEmail,
-                name,
-                username,
-                passwordHash,
+                userId: targetUser._id,
                 tokenHash: hashVerificationToken(rawToken),
                 expiresAt: new Date(Date.now() + 10 * 60 * 1000),
                 attempts: 0,
@@ -88,6 +103,10 @@ export const requestRegistrationVerification = async (req, res) => {
             message: error?.message
         });
 
+        if (error?.code === 11000) {
+            return res.status(409).json({ message: "An account already exists with this email" });
+        }
+
         if (error?.statusCode) {
             return res.status(error.statusCode).json({ message: error.message });
         }
@@ -99,49 +118,29 @@ export const requestRegistrationVerification = async (req, res) => {
 export const resendRegistrationVerification = async (req, res) => {
     try {
         const normalizedEmail = assertAllowedGmail(req.body.email);
-        const pendingToken = await VerificationToken.findOne({ email: normalizedEmail });
+        const existingUser = await User.findOne({ email: normalizedEmail }).select("+password");
+
+        if (!existingUser || existingUser.authProvider !== "local") {
+            return res.status(404).json({
+                message: "No pending verification found. Please sign up again to request a new verification link."
+            });
+        }
+
+        if (existingUser.isEmailVerified) {
+            return res.status(409).json({ message: "Email is already verified. Please login." });
+        }
+
+        const pendingToken = await VerificationToken.findOne({ userId: existingUser._id });
 
         if (pendingToken?.lastSentAt && (Date.now() - new Date(pendingToken.lastSentAt).getTime()) < 60_000) {
             return res.status(429).json({ message: "Please wait before requesting another verification email" });
         }
 
-        const existingVerified = await User.findOne({ email: normalizedEmail, role: "student", isEmailVerified: true });
-        if (existingVerified) {
-            return res.status(409).json({ message: "Email is already verified. Please login." });
-        }
-
-        let payloadForToken = null;
-
-        if (pendingToken) {
-            payloadForToken = {
-                name: pendingToken.name,
-                username: pendingToken.username,
-                passwordHash: pendingToken.passwordHash
-            };
-        } else {
-            const existingUser = await User.findOne({ email: normalizedEmail, role: "student" }).select("+password");
-
-            if (!existingUser || existingUser.authProvider === "google" || existingUser.isEmailVerified || !existingUser.password) {
-                return res.status(404).json({
-                    message: "No pending verification found. Please sign up again to request a new verification link."
-                });
-            }
-
-            payloadForToken = {
-                name: existingUser.name,
-                username: existingUser.username,
-                passwordHash: existingUser.password
-            };
-        }
-
         const rawToken = createVerificationToken();
         await VerificationToken.findOneAndUpdate(
-            { email: normalizedEmail },
+            { userId: existingUser._id },
             {
-                email: normalizedEmail,
-                name: payloadForToken.name,
-                username: payloadForToken.username,
-                passwordHash: payloadForToken.passwordHash,
+                userId: existingUser._id,
                 tokenHash: hashVerificationToken(rawToken),
                 expiresAt: new Date(Date.now() + 10 * 60 * 1000),
                 attempts: 0,
@@ -188,9 +187,14 @@ export const verifyRegistrationToken = async (req, res) => {
             return res.status(400).json({ message: "Verification link expired or invalid" });
         }
 
-        const existingUser = await User.findOne({ email: tokenDoc.email, role: "student" });
+        const existingUser = await User.findById(tokenDoc.userId);
 
-        if (existingUser?.isEmailVerified) {
+        if (!existingUser) {
+            await VerificationToken.deleteOne({ _id: tokenDoc._id });
+            return res.status(404).json({ message: "User record not found for this verification link" });
+        }
+
+        if (existingUser.isEmailVerified) {
             await VerificationToken.deleteOne({ _id: tokenDoc._id });
             return res.status(200).json({
                 message: "Email already verified",
@@ -198,29 +202,10 @@ export const verifyRegistrationToken = async (req, res) => {
             });
         }
 
-        let user;
-
-        if (existingUser) {
-            existingUser.name = tokenDoc.name;
-            existingUser.username = tokenDoc.username;
-            existingUser.password = tokenDoc.passwordHash;
-            existingUser.authProvider = "local";
-            existingUser.isEmailVerified = true;
-            existingUser.emailVerifiedAt = new Date();
-            existingUser.lastLoginAt = new Date();
-            user = await existingUser.save();
-        } else {
-            user = await User.create({
-                username: tokenDoc.username,
-                name: tokenDoc.name,
-                email: tokenDoc.email,
-                password: tokenDoc.passwordHash,
-                authProvider: "local",
-                isEmailVerified: true,
-                emailVerifiedAt: new Date(),
-                lastLoginAt: new Date()
-            });
-        }
+        existingUser.isEmailVerified = true;
+        existingUser.emailVerifiedAt = new Date();
+        existingUser.lastLoginAt = new Date();
+        const user = await existingUser.save();
 
         await VerificationToken.deleteOne({ _id: tokenDoc._id });
 
