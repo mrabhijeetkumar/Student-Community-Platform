@@ -232,21 +232,8 @@ export default function Explore() {
 
         setBusyStudentUsername(student.username);
         const previousStudent = student;
-        const optimisticStudent = {
-            ...student,
-            isFollowing: !student.isFollowing,
-            stats: {
-                ...(student.stats || {}),
-                followers: Math.max(0, (student.stats?.followers ?? 0) + (student.isFollowing ? -1 : 1))
-            }
-        };
-
-        setDirectory((currentStudents) => currentStudents.map((item) => (
-            item._id === student._id ? optimisticStudent : item
-        )));
-
         try {
-            const updatedStudent = student.isFollowing
+            const updatedStudent = (student.isFollowing || student.followRequestStatus === "requested")
                 ? await unfollowUser(student.username, token)
                 : await followUser(student.username, token);
 

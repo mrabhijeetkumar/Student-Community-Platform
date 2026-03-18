@@ -34,7 +34,9 @@ export const getUserDashboard = async (req, res) => {
             totalSavedPosts,
             joinedCommunities,
             totalFollowers: req.user.followers.length,
-            totalFollowing: req.user.following.length
+            totalFollowing: req.user.following.length,
+            pendingFollowRequests: req.user.followRequestsReceived?.length || 0,
+            isEmailVerified: Boolean(req.user.isEmailVerified)
         },
         recentActivity: [...recentNotifications, ...recentMessages].sort(
             (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
@@ -201,8 +203,12 @@ export const setUserRole = async (req, res) => {
             return res.status(400).json({ message: "Role must be student or admin" });
         }
 
-        // Prevent the superadmin from being demoted by checking env
         const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase().trim();
+
+        if (!superAdminEmail || req.user.email !== superAdminEmail) {
+            return res.status(403).json({ message: "Only the primary admin can grant or revoke admin access" });
+        }
+
         const target = await User.findById(userId).select("email role name");
 
         if (!target) {
@@ -245,7 +251,7 @@ export const deleteUserByAdmin = async (req, res) => {
 
         await User.findByIdAndDelete(userId);
         await Post.deleteMany({ author: userId });
-        await Comment.deleteMany({ author: userId });
+        await Comment.deleteMany({ userId });
         await Notification.deleteMany({ userId });
 
         res.json({ message: `Account for ${target.name} deleted` });

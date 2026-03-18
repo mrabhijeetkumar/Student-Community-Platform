@@ -21,7 +21,8 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true,
             lowercase: true,
-            trim: true
+            trim: true,
+            unique: true
         },
 
         password: {
@@ -148,6 +149,21 @@ const userSchema = new mongoose.Schema(
             ref: "User"
         }],
 
+        isPrivate: {
+            type: Boolean,
+            default: false
+        },
+
+        followRequestsReceived: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }],
+
+        followRequestsSent: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }],
+
         isBanned: {
             type: Boolean,
             default: false
@@ -162,6 +178,7 @@ const userSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ email: 1, role: 1 }, { unique: true });
 
 export default mongoose.model("User", userSchema);
