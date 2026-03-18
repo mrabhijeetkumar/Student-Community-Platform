@@ -32,7 +32,6 @@ export default function Dashboard() {
     const composerSectionRef = useRef(null);
     const [dashStats, setDashStats] = useState(null);
     const [suggestions, setSuggestions] = useState([]);
-    const [followingSet, setFollowingSet] = useState(new Set());
 
     const loadDashboard = async ({ showLoading = true, type } = {}) => {
         if (!token) return;
@@ -65,21 +64,16 @@ export default function Dashboard() {
 
     const handleToggleFollow = async (targetUser) => {
         if (!token) return;
-        const isFollowing = followingSet.has(targetUser._id);
-        setFollowingSet((prev) => {
-            const next = new Set(prev);
-            if (isFollowing) next.delete(targetUser._id); else next.add(targetUser._id);
-            return next;
-        });
         try {
-            if (isFollowing) await unfollowUser(targetUser.username, token);
-            else await followUser(targetUser.username, token);
+            const updated = (targetUser.isFollowing || targetUser.followRequestStatus === "requested")
+                ? await unfollowUser(targetUser.username, token)
+                : await followUser(targetUser.username, token);
+
+            setSuggestions((prev) => prev.map((item) => (
+                item._id === targetUser._id ? { ...item, ...updated } : item
+            )));
         } catch {
-            setFollowingSet((prev) => {
-                const next = new Set(prev);
-                if (isFollowing) next.add(targetUser._id); else next.delete(targetUser._id);
-                return next;
-            });
+            // noop
         }
     };
 
@@ -284,7 +278,7 @@ export default function Dashboard() {
                             </p>
                             <div className="space-y-2.5">
                                 {suggestions.map((s) => {
-                                    const isFollowing = followingSet.has(s._id);
+                                    const isFollowing = s.isFollowing;
                                     const avatar = s.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name || "U")}&background=0a66c2&color=fff&bold=true&size=64`;
                                     return (
                                         <div key={s._id} className="flex items-center gap-2.5">
@@ -310,7 +304,7 @@ export default function Dashboard() {
                                                     : { background: "var(--primary-subtle)", color: "var(--primary)", border: "1px solid rgba(10,102,194,0.2)" }
                                                 }
                                             >
-                                                {isFollowing ? "Following" : "Follow"}
+                                                {isFollowing ? "Following" : s.followRequestStatus === "requested" ? "Requested" : "Follow"}
                                             </button>
                                         </div>
                                     );
