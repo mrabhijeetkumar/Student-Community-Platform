@@ -4,16 +4,20 @@ import protect from "../middleware/authMiddleware.js";
 import validateRequest from "../middleware/validateRequest.js";
 import { validatePasswordStrength } from "../services/authService.js";
 import {
+    acceptFollowRequest,
+    changePassword,
     followUser,
     getCurrentUser,
+    getFollowRequests,
     getUserDirectory,
     getUserFollowers,
     getUserFollowing,
     getSuggestedUsers,
     getUserProfile,
+    rejectFollowRequest,
+    removeFollower,
     unfollowUser,
-    updateCurrentUser,
-    changePassword
+    updateCurrentUser
 } from "../controllers/userController.js";
 
 const router = express.Router();
@@ -43,9 +47,13 @@ router.put(
 );
 router.get("/directory", getUserDirectory);
 router.get("/suggestions", getSuggestedUsers);
+router.get("/follow-requests", getFollowRequests);
 router.get("/profile/:username", getUserProfile);
 router.post("/profile/:username/follow", followUser);
 router.delete("/profile/:username/follow", unfollowUser);
+router.post("/profile/:username/follow-request/accept", acceptFollowRequest);
+router.delete("/profile/:username/follow-request", rejectFollowRequest);
+router.delete("/profile/:username/follower", removeFollower);
 router.get("/profile/:username/followers", getUserFollowers);
 router.get("/profile/:username/following", getUserFollowing);
 

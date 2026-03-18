@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { getUserRoles } from "../services/authService.js";
 
 export const protect = async (req, res, next) => {
 
@@ -29,6 +30,10 @@ export const protect = async (req, res, next) => {
             if (req.user.isBanned) {
                 return res.status(403).json({ message: "Your account has been suspended. Contact support for assistance." });
             }
+
+            req.user.roles = getUserRoles(req.user);
+            req.activeRole = decoded.role || req.user.role;
+            req.user.role = req.activeRole;
 
             next();
 

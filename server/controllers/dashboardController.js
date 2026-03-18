@@ -3,6 +3,7 @@ import Community from "../models/Community.js";
 import Notification from "../models/Notification.js";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
+import { getUserRoles, hasRole } from "../services/authService.js";
 
 const buildLastSevenDays = () => {
     const days = [];
@@ -34,7 +35,9 @@ export const getUserDashboard = async (req, res) => {
             totalSavedPosts,
             joinedCommunities,
             totalFollowers: req.user.followers.length,
-            totalFollowing: req.user.following.length
+            totalFollowing: req.user.following.length,
+            pendingFollowRequests: req.user.followRequestsReceived?.length || 0,
+            isEmailVerified: Boolean(req.user.isEmailVerified)
         },
         recentActivity: [...recentNotifications, ...recentMessages].sort(
             (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
@@ -53,7 +56,7 @@ export const getAdminDashboard = async (req, res) => {
         req.models?.Message ? req.models.Message.countDocuments() : 0
     ]);
 
-    const adminCount = await User.countDocuments({ role: "admin" });
+    const adminCount = await User.countDocuments({ roles: "admin" });
     const totalLikes = await Post.aggregate([{ $project: { count: { $size: "$likes" } } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
     const totalSaves = await Post.aggregate([{ $project: { count: { $size: "$savedBy" } } }, { $group: { _id: null, total: { $sum: "$count" } } }]);
 
@@ -112,7 +115,7 @@ export const getAdminUsers = async (req, res) => {
 
         const [users, total] = await Promise.all([
             User.find(filter)
-                .select("username name email profilePhoto role isEmailVerified isBanned createdAt lastLoginAt followers following college")
+                .select("username name email profilePhoto role roles isEmailVerified isBanned createdAt lastLoginAt followers following college")
                 .sort({ createdAt: -1 })
                 .skip((page - 1) * limit)
                 .limit(limit),
@@ -135,7 +138,8 @@ export const getAdminUsers = async (req, res) => {
                 name: u.name,
                 email: u.email,
                 profilePhoto: u.profilePhoto,
-                role: u.role,
+                role: hasRole(u, "admin") ? "admin" : "student",
+                roles: getUserRoles(u),
                 isEmailVerified: u.isEmailVerified,
                 createdAt: u.createdAt,
                 lastLoginAt: u.lastLoginAt,
@@ -201,22 +205,36 @@ export const setUserRole = async (req, res) => {
             return res.status(400).json({ message: "Role must be student or admin" });
         }
 
-        // Prevent the superadmin from being demoted by checking env
         const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase().trim();
-        const target = await User.findById(userId).select("email role name");
+
+        if (!superAdminEmail || req.user.email !== superAdminEmail) {
+            return res.status(403).json({ message: "Only the primary admin can grant or revoke admin access" });
+        }
+
+        const target = await User.findById(userId).select("email role roles name");
 
         if (!target) {
             return res.status(404).json({ message: "User not found" });
         }
 
-        if (superAdminEmail && target.email === superAdminEmail && target.role === "admin" && role !== "admin") {
+        if (superAdminEmail && target.email === superAdminEmail && hasRole(target, "admin") && role !== "admin") {
             return res.status(403).json({ message: "Cannot demote the super-admin account" });
         }
 
-        target.role = role;
+        const currentRoles = getUserRoles(target);
+        target.roles = role === "admin"
+            ? [...new Set([...currentRoles, "admin"])]
+            : currentRoles.filter((entry) => entry !== "admin");
+        if (target.roles.length === 0) {
+            target.roles = ["student"];
+        }
+        target.role = target.roles.includes("admin") ? "admin" : "student";
         await target.save();
 
-        res.json({ message: `${target.name} is now ${role}`, user: { _id: target._id, role: target.role } });
+        res.json({
+            message: `${target.name} is now ${role}`,
+            user: { _id: target._id, role: target.role, roles: target.roles }
+        });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -228,13 +246,13 @@ export const deleteUserByAdmin = async (req, res) => {
         const { userId } = req.params;
 
         const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase().trim();
-        const target = await User.findById(userId).select("email name role");
+        const target = await User.findById(userId).select("email name role roles");
 
         if (!target) {
             return res.status(404).json({ message: "User not found" });
         }
 
-        if (superAdminEmail && target.email === superAdminEmail && target.role === "admin") {
+        if (superAdminEmail && target.email === superAdminEmail && hasRole(target, "admin")) {
             return res.status(403).json({ message: "Cannot delete the super-admin account" });
         }
 
@@ -245,7 +263,7 @@ export const deleteUserByAdmin = async (req, res) => {
 
         await User.findByIdAndDelete(userId);
         await Post.deleteMany({ author: userId });
-        await Comment.deleteMany({ author: userId });
+        await Comment.deleteMany({ userId });
         await Notification.deleteMany({ userId });
 
         res.json({ message: `Account for ${target.name} deleted` });
@@ -333,7 +351,7 @@ export const getAdminActivity = async (req, res) => {
 
         const [recentUsers, recentPosts, recentComments] = await Promise.all([
             User.find()
-                .select("name username profilePhoto createdAt role isEmailVerified")
+                .select("name username profilePhoto createdAt role roles isEmailVerified")
                 .sort({ createdAt: -1 })
                 .limit(limit),
             Post.find()
@@ -357,7 +375,7 @@ export const getAdminActivity = async (req, res) => {
                 name: u.name,
                 username: u.username,
                 photo: u.profilePhoto,
-                role: u.role,
+                role: hasRole(u, "admin") ? "admin" : "student",
                 verified: u.isEmailVerified,
                 createdAt: u.createdAt,
             })),
@@ -498,10 +516,10 @@ export const toggleBanUser = async (req, res) => {
         const { userId } = req.params;
 
         const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase().trim();
-        const target = await User.findById(userId).select("email name role isBanned");
+        const target = await User.findById(userId).select("email name role roles isBanned");
 
         if (!target) return res.status(404).json({ message: "User not found" });
-        if (superAdminEmail && target.email === superAdminEmail && target.role === "admin") {
+        if (superAdminEmail && target.email === superAdminEmail && hasRole(target, "admin")) {
             return res.status(403).json({ message: "Cannot ban the super-admin account" });
         }
         if (String(req.user._id) === String(userId)) {
