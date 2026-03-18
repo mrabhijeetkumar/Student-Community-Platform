@@ -3,8 +3,11 @@ import {
     fetchSession,
     loginUser,
     loginWithGoogle,
-    registerUser,
-    requestOtp
+    registerUser as registerUserApi,
+    requestOtp as requestOtpApi,
+    requestVerification as requestVerificationApi,
+    resendVerification as resendVerificationApi,
+    verifyRegistration as verifyRegistrationApi
 } from "../services/api";
 
 const AuthContext = createContext(null);
@@ -101,14 +104,24 @@ export function AuthProvider({ children }) {
             isBootstrapping,
             isAuthenticated: Boolean(token && user),
             async requestOtp(payload) {
-                return requestOtp(payload);
+                return requestOtpApi(payload);
+            },
+            async requestVerification(payload) {
+                return requestVerificationApi(payload);
+            },
+            async resendVerification(payload) {
+                return resendVerificationApi(payload);
             },
             async login(credentials) {
                 const response = await loginUser(credentials);
                 return handleAuthSuccess(response);
             },
             async register(details) {
-                const response = await registerUser(details);
+                const response = await registerUserApi(details);
+                return handleAuthSuccess(response);
+            },
+            async verifyRegistration(details) {
+                const response = await verifyRegistrationApi(details);
                 return handleAuthSuccess(response);
             },
             async googleLogin(idToken) {

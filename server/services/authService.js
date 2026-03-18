@@ -47,6 +47,7 @@ export const buildSafeUser = (user) => ({
     skills: user.skills,
     socialLinks: user.socialLinks,
     role: user.role,
+    isPrivate: Boolean(user.isPrivate),
     authProvider: user.authProvider,
     isEmailVerified: user.isEmailVerified,
     followers: user.followers,

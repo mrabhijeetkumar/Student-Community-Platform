@@ -19,7 +19,7 @@ const applyVoteState = (post, userId, voteType) => {
         if (alreadyUpvoted) {
             post.likes = removeUserVote(post.likes, userId);
         } else {
-            post.likes.push(userId);
+            post.likes.addToSet(userId);
             post.downvotes = removeUserVote(post.downvotes, userId);
             becameUpvoted = true;
         }
@@ -29,7 +29,7 @@ const applyVoteState = (post, userId, voteType) => {
         if (alreadyDownvoted) {
             post.downvotes = removeUserVote(post.downvotes, userId);
         } else {
-            post.downvotes.push(userId);
+            post.downvotes.addToSet(userId);
             post.likes = removeUserVote(post.likes, userId);
         }
     }
@@ -280,7 +280,7 @@ export const toggleSave = async (req, res) => {
         const index = post.savedBy.findIndex((savedUserId) => savedUserId.toString() === req.user._id.toString());
 
         if (index === -1) {
-            post.savedBy.push(req.user._id);
+            post.savedBy.addToSet(req.user._id);
         } else {
             post.savedBy.splice(index, 1);
         }
