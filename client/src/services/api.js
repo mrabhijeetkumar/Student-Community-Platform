@@ -372,6 +372,27 @@ export function unfollowUser(username, token) {
     });
 }
 
+
+export function getFollowRequests(token) {
+    return request("/users/follow-requests", {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function acceptFollowRequest(username, token) {
+    return request(`/users/profile/${username}/follow-request/accept`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function rejectFollowRequest(username, token) {
+    return request(`/users/profile/${username}/follow-request`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
 export function getNotifications(token) {
     return request("/notifications", {
         headers: {

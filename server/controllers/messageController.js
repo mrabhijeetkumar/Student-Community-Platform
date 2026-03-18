@@ -142,10 +142,17 @@ export const sendMessage = async (req, res) => {
             return res.status(400).json({ message: "You cannot message yourself" });
         }
 
-        const recipient = await User.findById(req.params.userId).select("name username email profilePhoto headline college");
+        const recipient = await User.findById(req.params.userId).select("name username email profilePhoto headline college followers following");
 
         if (!recipient) {
             return res.status(404).json({ message: "Recipient not found" });
+        }
+
+        const senderFollowsRecipient = req.user.following.some((userId) => userId.toString() === recipient._id.toString());
+        const recipientFollowsSender = recipient.following.some((userId) => userId.toString() === req.user._id.toString());
+
+        if (!senderFollowsRecipient && !recipientFollowsSender) {
+            return res.status(403).json({ message: "Follow each other first to start messaging" });
         }
 
         const message = await Message.create({
