@@ -148,6 +148,21 @@ const userSchema = new mongoose.Schema(
             ref: "User"
         }],
 
+        isPrivate: {
+            type: Boolean,
+            default: false
+        },
+
+        followRequestsReceived: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }],
+
+        followRequestsSent: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }],
+
         isBanned: {
             type: Boolean,
             default: false

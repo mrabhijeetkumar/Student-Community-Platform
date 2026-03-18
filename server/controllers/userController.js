@@ -2,7 +2,7 @@ import User from "../models/User.js";
 import { createNotification } from "../services/notificationService.js";
 import { buildSafeUser, ensureUniqueUsername, hashPassword, comparePassword, validatePasswordStrength } from "../services/authService.js";
 
-const publicUserSelect = "username name email profilePhoto coverPhoto headline bio college skills socialLinks followers following role authProvider isEmailVerified createdAt updatedAt";
+const publicUserSelect = "username name email profilePhoto coverPhoto headline bio college skills socialLinks followers following followRequestsReceived followRequestsSent isPrivate role authProvider isEmailVerified createdAt updatedAt";
 
 const normalizeProfileLink = (value) => {
     const trimmedValue = value?.trim() || "";
@@ -14,13 +14,30 @@ const normalizeProfileLink = (value) => {
     return /^https?:\/\//i.test(trimmedValue) ? trimmedValue : `https://${trimmedValue}`;
 };
 
+const includesUser = (arr = [], id) => arr.some((entry) => entry.toString() === id.toString());
+const removeUser = (arr = [], id) => arr.filter((entry) => entry.toString() !== id.toString());
+
+const getFollowRequestStatus = (user, viewerId) => {
+    if (!viewerId) return "none";
+    if (user._id.toString() === viewerId.toString()) return "self";
+
+    if (includesUser(user.followers, viewerId)) return "following";
+    if (includesUser(user.followRequestsReceived, viewerId)) return "requested";
+    if (includesUser(user.followRequestsSent, viewerId)) return "incoming";
+
+    return "none";
+};
+
 const formatProfileResponse = (user, viewerId) => ({
     ...buildSafeUser(user),
+    isPrivate: Boolean(user.isPrivate),
     stats: {
         followers: user.followers.length,
-        following: user.following.length
+        following: user.following.length,
+        pendingFollowRequests: user.followRequestsReceived?.length || 0
     },
-    isFollowing: viewerId ? user.followers.some((followerId) => followerId.toString() === viewerId.toString()) : false
+    isFollowing: viewerId ? user.followers.some((followerId) => followerId.toString() === viewerId.toString()) : false,
+    followRequestStatus: getFollowRequestStatus(user, viewerId)
 });
 
 export const getCurrentUser = async (req, res) => {
@@ -51,6 +68,9 @@ export const updateCurrentUser = async (req, res) => {
         user.college = req.body.college?.trim() ?? user.college;
         user.profilePhoto = req.body.profilePhoto?.trim() ?? user.profilePhoto;
         user.coverPhoto = req.body.coverPhoto?.trim() ?? user.coverPhoto;
+        if (typeof req.body.isPrivate === "boolean") {
+            user.isPrivate = req.body.isPrivate;
+        }
         user.skills = Array.isArray(req.body.skills)
             ? req.body.skills.map((skill) => skill.trim()).filter(Boolean)
             : user.skills;
@@ -88,7 +108,7 @@ export const getUserDirectory = async (req, res) => {
         }
 
         const users = await User.find(filter)
-            .select("username name profilePhoto headline college skills followers following")
+            .select("username name profilePhoto headline college skills followers following followRequestsReceived followRequestsSent isPrivate")
             .sort({ createdAt: -1 })
             .limit(24);
 
@@ -101,7 +121,7 @@ export const getUserDirectory = async (req, res) => {
 export const getSuggestedUsers = async (req, res) => {
     const ignoredIds = [...req.user.following, req.user._id];
     const users = await User.find({ _id: { $nin: ignoredIds } })
-        .select("username name profilePhoto headline college skills followers following")
+        .select("username name profilePhoto headline college skills followers following followRequestsReceived followRequestsSent isPrivate")
         .sort({ createdAt: -1 })
         .limit(6);
 
@@ -129,10 +149,42 @@ export const followUser = async (req, res) => {
         return res.status(400).json({ message: "You cannot follow yourself" });
     }
 
-    const alreadyFollowing = req.user.following.some((userId) => userId.toString() === targetUser._id.toString());
+    const alreadyFollowing = includesUser(req.user.following, targetUser._id);
 
     if (alreadyFollowing) {
         return res.status(400).json({ message: "Already following this user" });
+    }
+
+    const alreadyRequested = includesUser(req.user.followRequestsSent, targetUser._id);
+    if (alreadyRequested) {
+        return res.status(400).json({ message: "Follow request already pending" });
+    }
+
+    if (targetUser.isPrivate) {
+        if (!includesUser(req.user.followRequestsSent, targetUser._id)) {
+            req.user.followRequestsSent.push(targetUser._id);
+        }
+
+        if (!includesUser(targetUser.followRequestsReceived, req.user._id)) {
+            targetUser.followRequestsReceived.push(req.user._id);
+        }
+
+        await Promise.all([req.user.save(), targetUser.save()]);
+
+        await createNotification({
+            userId: targetUser._id,
+            actorId: req.user._id,
+            type: "follow",
+            title: "New follow request",
+            message: `${req.user.name} requested to follow you.`,
+            link: `/profile/${req.user.username}`
+        });
+
+        const refreshedUser = await User.findOne({ username: targetUser.username }).select(publicUserSelect);
+        return res.json({
+            ...formatProfileResponse(refreshedUser, req.user._id),
+            message: "Follow request sent"
+        });
     }
 
     req.user.following.push(targetUser._id);
@@ -159,20 +211,120 @@ export const unfollowUser = async (req, res) => {
         return res.status(404).json({ message: "User not found" });
     }
 
-    req.user.following = req.user.following.filter((userId) => userId.toString() !== targetUser._id.toString());
-    targetUser.followers = targetUser.followers.filter((userId) => userId.toString() !== req.user._id.toString());
+    const wasFollowing = includesUser(req.user.following, targetUser._id);
+    const hadPendingRequest = includesUser(req.user.followRequestsSent, targetUser._id);
+
+    req.user.following = removeUser(req.user.following, targetUser._id);
+    targetUser.followers = removeUser(targetUser.followers, req.user._id);
+
+    req.user.followRequestsSent = removeUser(req.user.followRequestsSent, targetUser._id);
+    targetUser.followRequestsReceived = removeUser(targetUser.followRequestsReceived, req.user._id);
 
     await Promise.all([req.user.save(), targetUser.save()]);
 
     const refreshedUser = await User.findOne({ username: targetUser.username }).select(publicUserSelect);
-    res.json(formatProfileResponse(refreshedUser, req.user._id));
+    res.json({
+        ...formatProfileResponse(refreshedUser, req.user._id),
+        message: hadPendingRequest ? "Follow request canceled" : (wasFollowing ? "Unfollowed successfully" : "Updated")
+    });
+};
+
+export const removeFollower = async (req, res) => {
+    const follower = await User.findOne({ username: req.params.username });
+    const currentUser = await User.findById(req.user._id);
+
+    if (!follower || !currentUser) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    const hadFollower = includesUser(currentUser.followers, follower._id);
+
+    currentUser.followers = removeUser(currentUser.followers, follower._id);
+    follower.following = removeUser(follower.following, currentUser._id);
+
+    currentUser.followRequestsReceived = removeUser(currentUser.followRequestsReceived, follower._id);
+    follower.followRequestsSent = removeUser(follower.followRequestsSent, currentUser._id);
+
+    await Promise.all([currentUser.save(), follower.save()]);
+
+    const refreshedUser = await User.findOne({ username: currentUser.username }).select(publicUserSelect);
+    res.json({
+        ...formatProfileResponse(refreshedUser, req.user._id),
+        message: hadFollower ? "Follower removed" : "Updated"
+    });
+};
+
+export const getFollowRequests = async (req, res) => {
+    const user = await User.findById(req.user._id)
+        .select("followRequestsReceived")
+        .populate("followRequestsReceived", "username name profilePhoto headline college followers following followRequestsReceived followRequestsSent isPrivate");
+
+    if (!user) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user.followRequestsReceived.map((requester) => formatProfileResponse(requester, req.user._id)));
+};
+
+export const acceptFollowRequest = async (req, res) => {
+    const requester = await User.findOne({ username: req.params.username });
+    const currentUser = await User.findById(req.user._id);
+
+    if (!requester || !currentUser) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!includesUser(currentUser.followRequestsReceived, requester._id)) {
+        return res.status(400).json({ message: "No pending follow request" });
+    }
+
+    currentUser.followRequestsReceived = removeUser(currentUser.followRequestsReceived, requester._id);
+    requester.followRequestsSent = removeUser(requester.followRequestsSent, currentUser._id);
+
+    if (!includesUser(currentUser.followers, requester._id)) {
+        currentUser.followers.push(requester._id);
+    }
+    if (!includesUser(requester.following, currentUser._id)) {
+        requester.following.push(currentUser._id);
+    }
+
+    await Promise.all([currentUser.save(), requester.save()]);
+
+    await createNotification({
+        userId: requester._id,
+        actorId: currentUser._id,
+        type: "follow",
+        title: "Follow request accepted",
+        message: `${currentUser.name} accepted your follow request.`,
+        link: `/profile/${currentUser.username}`
+    });
+
+    const refreshedUser = await User.findOne({ username: currentUser.username }).select(publicUserSelect);
+    res.json({ ...formatProfileResponse(refreshedUser, req.user._id), message: "Follow request accepted" });
+};
+
+export const rejectFollowRequest = async (req, res) => {
+    const requester = await User.findOne({ username: req.params.username });
+    const currentUser = await User.findById(req.user._id);
+
+    if (!requester || !currentUser) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    currentUser.followRequestsReceived = removeUser(currentUser.followRequestsReceived, requester._id);
+    requester.followRequestsSent = removeUser(requester.followRequestsSent, currentUser._id);
+
+    await Promise.all([currentUser.save(), requester.save()]);
+
+    const refreshedUser = await User.findOne({ username: currentUser.username }).select(publicUserSelect);
+    res.json({ ...formatProfileResponse(refreshedUser, req.user._id), message: "Follow request removed" });
 };
 
 export const getUserFollowers = async (req, res) => {
     try {
         const user = await User.findOne({ username: req.params.username })
             .select("followers")
-            .populate("followers", "username name profilePhoto headline college followers following");
+            .populate("followers", "username name profilePhoto headline college followers following followRequestsReceived followRequestsSent isPrivate");
 
         if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -186,7 +338,7 @@ export const getUserFollowing = async (req, res) => {
     try {
         const user = await User.findOne({ username: req.params.username })
             .select("following")
-            .populate("following", "username name profilePhoto headline college followers following");
+            .populate("following", "username name profilePhoto headline college followers following followRequestsReceived followRequestsSent isPrivate");
 
         if (!user) return res.status(404).json({ message: "User not found" });
 

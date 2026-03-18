@@ -1,21 +1,36 @@
+import crypto from "crypto";
 import User from "../models/User.js";
 import PasswordResetToken from "../models/PasswordResetToken.js";
+import VerificationToken from "../models/VerificationToken.js";
 import {
     assertAllowedGmail,
     buildAuthResponse,
     buildSafeUser,
     comparePassword,
-    createOtp,
     ensureUniqueUsername,
-    hashOtp,
     hashPassword,
     normalizeEmail,
     validatePasswordStrength
 } from "../services/authService.js";
-import { sendRegistrationOtpEmail, sendPasswordResetOtpEmail } from "../services/emailService.js";
+import {
+    sendPasswordResetOtpEmail,
+    sendVerificationEmail
+} from "../services/emailService.js";
 import { verifyGoogleToken } from "../services/googleService.js";
 
-export const requestRegistrationOtp = async (req, res) => {
+const hashVerificationToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+const createVerificationToken = () => crypto.randomBytes(32).toString("hex");
+
+const getSuperAdminEmail = () => {
+    const raw = process.env.SUPER_ADMIN_EMAIL;
+    if (!raw) {
+        return "";
+    }
+
+    return normalizeEmail(raw);
+};
+
+export const requestRegistrationVerification = async (req, res) => {
     try {
         const { name, email, password } = req.body;
         const normalizedEmail = assertAllowedGmail(email);
@@ -25,12 +40,7 @@ export const requestRegistrationOtp = async (req, res) => {
             return res.status(400).json({ message: passwordValidation.message });
         }
 
-        const otp = createOtp();
-        const otpHash = hashOtp(otp);
-        const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
-        const now = new Date();
-
-        const existingUser = await User.findOne({ email: normalizedEmail, role: "student" }).select("+password");
+        const existingUser = await User.findOne({ email: normalizedEmail, role: "student" });
 
         if (existingUser?.authProvider === "google") {
             return res.status(409).json({ message: "This account already exists with Google sign-in" });
@@ -40,48 +50,39 @@ export const requestRegistrationOtp = async (req, res) => {
             return res.status(409).json({ message: "A student account already exists for this email" });
         }
 
-        if (
-            existingUser?.otpLastSentAt
-            && (Date.now() - existingUser.otpLastSentAt.getTime()) < 1000
-        ) {
-            return res.status(429).json({ message: "Please wait before requesting another OTP" });
-        }
-
         const passwordHash = await hashPassword(password);
+        const username = await ensureUniqueUsername(name || normalizedEmail.split("@")[0]);
+        const rawToken = createVerificationToken();
 
-        if (existingUser) {
-            existingUser.name = name;
-            existingUser.password = passwordHash;
-            existingUser.authProvider = "local";
-            existingUser.otpHash = otpHash;
-            existingUser.otpExpiresAt = otpExpiresAt;
-            existingUser.otpAttempts = 0;
-            existingUser.otpLastSentAt = now;
-            await existingUser.save();
-        } else {
-            const username = await ensureUniqueUsername(name || normalizedEmail.split("@")[0]);
-
-            await User.create({
-                username,
-                name,
+        await VerificationToken.findOneAndUpdate(
+            { email: normalizedEmail },
+            {
                 email: normalizedEmail,
-                password: passwordHash,
-                authProvider: "local",
-                isEmailVerified: false,
-                otpHash,
-                otpExpiresAt,
-                otpAttempts: 0,
-                otpLastSentAt: now
+                name,
+                username,
+                passwordHash,
+                tokenHash: hashVerificationToken(rawToken),
+                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+                attempts: 0,
+                lastSentAt: new Date()
+            },
+            { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+        );
+
+        const delivery = await sendVerificationEmail(normalizedEmail, rawToken);
+
+        if (!delivery.success) {
+            return res.status(delivery.statusCode || 502).json({
+                message: delivery.message || "Unable to send verification email"
             });
         }
 
-        const delivery = await sendRegistrationOtpEmail({ email: normalizedEmail, name, otp });
-
         res.status(200).json({
-            message: "OTP sent successfully"
+            message: "Verification link sent successfully",
+            requestId: delivery.messageId
         });
     } catch (error) {
-        console.error("[auth] requestRegistrationOtp failed", {
+        console.error("[auth] requestRegistrationVerification failed", {
             code: error?.code,
             statusCode: error?.statusCode,
             message: error?.message
@@ -91,40 +92,137 @@ export const requestRegistrationOtp = async (req, res) => {
             return res.status(error.statusCode).json({ message: error.message });
         }
 
-        return res.status(500).json({ message: "OTP sending failed" });
+        return res.status(500).json({ message: "Verification email sending failed" });
     }
 };
 
-export const registerUser = async (req, res) => {
+export const resendRegistrationVerification = async (req, res) => {
     try {
-        const normalizedEmail = normalizeEmail(req.body.email);
-        const user = await User.findOne({
-            email: normalizedEmail,
-            role: "student",
-            authProvider: "local"
-        }).select("+password");
+        const normalizedEmail = assertAllowedGmail(req.body.email);
+        const pendingToken = await VerificationToken.findOne({ email: normalizedEmail });
 
-        if (!user || !user.otpHash || !user.otpExpiresAt || user.otpExpiresAt < new Date()) {
-            return res.status(400).json({ message: "OTP expired. Request a new one." });
+        if (pendingToken?.lastSentAt && (Date.now() - new Date(pendingToken.lastSentAt).getTime()) < 60_000) {
+            return res.status(429).json({ message: "Please wait before requesting another verification email" });
         }
 
-        if (user.otpAttempts >= 5) {
-            return res.status(429).json({ message: "Too many invalid OTP attempts" });
+        const existingVerified = await User.findOne({ email: normalizedEmail, role: "student", isEmailVerified: true });
+        if (existingVerified) {
+            return res.status(409).json({ message: "Email is already verified. Please login." });
         }
 
-        if (user.otpHash !== hashOtp(req.body.otp)) {
-            user.otpAttempts += 1;
-            await user.save();
-            return res.status(400).json({ message: "Invalid OTP" });
+        let payloadForToken = null;
+
+        if (pendingToken) {
+            payloadForToken = {
+                name: pendingToken.name,
+                username: pendingToken.username,
+                passwordHash: pendingToken.passwordHash
+            };
+        } else {
+            const existingUser = await User.findOne({ email: normalizedEmail, role: "student" }).select("+password");
+
+            if (!existingUser || existingUser.authProvider === "google" || existingUser.isEmailVerified || !existingUser.password) {
+                return res.status(404).json({
+                    message: "No pending verification found. Please sign up again to request a new verification link."
+                });
+            }
+
+            payloadForToken = {
+                name: existingUser.name,
+                username: existingUser.username,
+                passwordHash: existingUser.password
+            };
         }
 
-        user.isEmailVerified = true;
-        user.emailVerifiedAt = new Date();
-        user.otpHash = undefined;
-        user.otpExpiresAt = null;
-        user.otpAttempts = 0;
-        user.otpLastSentAt = null;
-        await user.save();
+        const rawToken = createVerificationToken();
+        await VerificationToken.findOneAndUpdate(
+            { email: normalizedEmail },
+            {
+                email: normalizedEmail,
+                name: payloadForToken.name,
+                username: payloadForToken.username,
+                passwordHash: payloadForToken.passwordHash,
+                tokenHash: hashVerificationToken(rawToken),
+                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+                attempts: 0,
+                lastSentAt: new Date()
+            },
+            { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+        );
+
+        const delivery = await sendVerificationEmail(normalizedEmail, rawToken);
+
+        if (!delivery.success) {
+            return res.status(delivery.statusCode || 502).json({
+                message: delivery.message || "Unable to send verification email"
+            });
+        }
+
+        return res.status(200).json({
+            message: "Verification link resent successfully",
+            requestId: delivery.messageId
+        });
+    } catch (error) {
+        if (error?.statusCode) {
+            return res.status(error.statusCode).json({ message: error.message });
+        }
+
+        return res.status(500).json({ message: "Verification email sending failed" });
+    }
+};
+
+export const verifyRegistrationToken = async (req, res) => {
+    try {
+        const token = (req.body?.token || req.query?.token || "").trim();
+
+        if (!token) {
+            return res.status(400).json({ message: "Verification token is required" });
+        }
+
+        const tokenDoc = await VerificationToken.findOne({ tokenHash: hashVerificationToken(token) });
+
+        if (!tokenDoc || tokenDoc.expiresAt < new Date()) {
+            if (tokenDoc) {
+                await VerificationToken.deleteOne({ _id: tokenDoc._id });
+            }
+            return res.status(400).json({ message: "Verification link expired or invalid" });
+        }
+
+        const existingUser = await User.findOne({ email: tokenDoc.email, role: "student" });
+
+        if (existingUser?.isEmailVerified) {
+            await VerificationToken.deleteOne({ _id: tokenDoc._id });
+            return res.status(200).json({
+                message: "Email already verified",
+                ...buildAuthResponse(existingUser)
+            });
+        }
+
+        let user;
+
+        if (existingUser) {
+            existingUser.name = tokenDoc.name;
+            existingUser.username = tokenDoc.username;
+            existingUser.password = tokenDoc.passwordHash;
+            existingUser.authProvider = "local";
+            existingUser.isEmailVerified = true;
+            existingUser.emailVerifiedAt = new Date();
+            existingUser.lastLoginAt = new Date();
+            user = await existingUser.save();
+        } else {
+            user = await User.create({
+                username: tokenDoc.username,
+                name: tokenDoc.name,
+                email: tokenDoc.email,
+                password: tokenDoc.passwordHash,
+                authProvider: "local",
+                isEmailVerified: true,
+                emailVerifiedAt: new Date(),
+                lastLoginAt: new Date()
+            });
+        }
+
+        await VerificationToken.deleteOne({ _id: tokenDoc._id });
 
         res.status(201).json({
             message: "Registration successful",
@@ -140,9 +238,18 @@ export const loginUser = async (req, res) => {
         const email = normalizeEmail(req.body.email);
         const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
         const user = await User.findOne({ email, role }).select("+password");
+        const superAdminEmail = getSuperAdminEmail();
 
         if (!user) {
             return res.status(400).json({ message: "Invalid email or password" });
+        }
+
+        if (role === "admin" && user.role !== "admin") {
+            return res.status(403).json({ message: "Admin panel access is restricted" });
+        }
+
+        if (role === "admin" && superAdminEmail && user.email === superAdminEmail && user.role !== "admin") {
+            return res.status(403).json({ message: "Primary admin account is not initialized yet" });
         }
 
         if (user.authProvider === "google") {
@@ -150,7 +257,7 @@ export const loginUser = async (req, res) => {
         }
 
         if (!user.isEmailVerified) {
-            return res.status(403).json({ message: "Please verify OTP before logging in" });
+            return res.status(403).json({ message: "Please verify your email before logging in" });
         }
 
         const isMatch = await comparePassword(req.body.password, user.password);
@@ -220,24 +327,40 @@ export const forgotPassword = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
         const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
+        const superAdminEmail = getSuperAdminEmail();
         const user = await User.findOne({ email, role });
 
         if (!user) {
-            return res.status(200).json({ message: "If an account exists with this email, an OTP has been sent." });
+            if (role === "admin") {
+                return res.status(403).json({ message: "Admin access is not allowed for this email" });
+            }
+
+            return res.status(404).json({
+                message: "Email not found. Please register first.",
+                otpSent: false
+            });
+        }
+
+        if (role === "admin" && user.role !== "admin") {
+            return res.status(403).json({ message: "Admin access is not allowed for this email" });
+        }
+
+        if (role === "admin" && superAdminEmail && email === superAdminEmail && user.role !== "admin") {
+            return res.status(403).json({ message: "Primary admin account is not active yet. Contact support." });
         }
 
         if (user.authProvider === "google") {
             return res.status(400).json({ message: "This account uses Google sign-in. Please login with Google." });
         }
 
-        const otp = createOtp();
+        const otp = `${Math.floor(100000 + Math.random() * 900000)}`;
 
         await PasswordResetToken.findOneAndUpdate(
             { email, role },
             {
                 email,
                 role,
-                otpHash: hashOtp(otp),
+                otpHash: crypto.createHash("sha256").update(otp).digest("hex"),
                 expiresAt: new Date(Date.now() + 10 * 60 * 1000),
                 attempts: 0
             },
@@ -246,8 +369,16 @@ export const forgotPassword = async (req, res) => {
 
         const delivery = await sendPasswordResetOtpEmail({ email, otp });
 
+        if (!delivery.success) {
+            return res.status(delivery.statusCode || 502).json({
+                message: "Could not send password reset OTP"
+            });
+        }
+
         res.status(200).json({
-            message: "If an account exists with this email, an OTP has been sent."
+            message: "If an account exists with this email, an OTP has been sent.",
+            otpSent: true,
+            requestId: delivery.messageId
         });
     } catch (error) {
         console.error("[auth] forgotPassword failed", {
@@ -260,7 +391,7 @@ export const forgotPassword = async (req, res) => {
             return res.status(error.statusCode).json({ message: error.message });
         }
 
-        return res.status(500).json({ message: "OTP sending failed" });
+        return res.status(500).json({ message: "Could not send password reset OTP" });
     }
 };
 
@@ -268,41 +399,44 @@ export const resetPassword = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
         const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
-        const { otp, newPassword } = req.body;
-        const passwordValidation = validatePasswordStrength(newPassword);
+        const otp = String(req.body.otp || "");
+        const { newPassword } = req.body;
 
+        const passwordValidation = validatePasswordStrength(newPassword);
         if (!passwordValidation.valid) {
             return res.status(400).json({ message: passwordValidation.message });
         }
 
-        const resetToken = await PasswordResetToken.findOne({ email, role });
-
-        if (!resetToken || resetToken.expiresAt < new Date()) {
+        const resetDoc = await PasswordResetToken.findOne({ email, role });
+        if (!resetDoc || resetDoc.expiresAt < new Date()) {
             return res.status(400).json({ message: "OTP expired. Request a new one." });
         }
 
-        if (resetToken.attempts >= 5) {
-            return res.status(429).json({ message: "Too many invalid attempts. Request a new OTP." });
+        if (resetDoc.attempts >= 5) {
+            return res.status(429).json({ message: "Too many invalid OTP attempts" });
         }
 
-        if (resetToken.otpHash !== hashOtp(otp)) {
-            resetToken.attempts += 1;
-            await resetToken.save();
+        const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+        if (resetDoc.otpHash !== otpHash) {
+            resetDoc.attempts += 1;
+            await resetDoc.save();
             return res.status(400).json({ message: "Invalid OTP" });
         }
 
-        const user = await User.findOne({ email, role });
+        const user = await User.findOne({ email, role }).select("+password");
+        const superAdminEmail = getSuperAdminEmail();
         if (!user) {
-            return res.status(400).json({ message: "Account not found" });
+            await PasswordResetToken.deleteOne({ _id: resetDoc._id });
+            return res.status(404).json({ message: "User not found" });
         }
 
         user.password = await hashPassword(newPassword);
         await user.save();
 
-        await PasswordResetToken.deleteOne({ _id: resetToken._id });
+        await PasswordResetToken.deleteOne({ _id: resetDoc._id });
 
-        res.status(200).json({ message: "Password reset successful. You can now log in." });
+        return res.status(200).json({ message: "Password reset successful" });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({ message: error.message || "Could not reset password" });
     }
 };
