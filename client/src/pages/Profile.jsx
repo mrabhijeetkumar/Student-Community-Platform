@@ -108,6 +108,7 @@ export default function Profile() {
     const [loading, setLoading] = useState(true);
     const [followLoading, setFollowLoading] = useState(false);
     const [isFollowing, setIsFollowing] = useState(false);
+    const [followRequestStatus, setFollowRequestStatus] = useState("none");
     const [activeTab, setActiveTab] = useState("Posts");
     const [editOpen, setEditOpen] = useState(false);
     const [editForm, setEditForm] = useState({ name: "", username: "", headline: "", bio: "", college: "", skills: "", profilePhoto: "", coverPhoto: "", github: "", linkedin: "", twitter: "", portfolio: "" });
@@ -205,6 +206,7 @@ export default function Profile() {
 
             setProfileData(nextProfile);
             setIsFollowing(nextProfile.isFollowing ?? false);
+            setFollowRequestStatus(nextProfile.followRequestStatus || (nextProfile.isFollowing ? "following" : "none"));
 
             if (!nextProfile?._id) {
                 setPosts([]);
@@ -226,17 +228,18 @@ export default function Profile() {
         if (!profileData || followLoading) return;
         setFollowLoading(true);
         try {
-            if (isFollowing) {
-                await unfollowUser(profileData.username, token);
-                setIsFollowing(false);
-                setProfileData((p) => p ? { ...p, stats: { ...p.stats, followers: p.stats.followers - 1 } } : p);
+            let updatedProfile;
+            if (isFollowing || followRequestStatus === "requested") {
+                updatedProfile = await unfollowUser(profileData.username, token);
             } else {
-                await followUser(profileData.username, token);
-                setIsFollowing(true);
-                setProfileData((p) => p ? { ...p, stats: { ...p.stats, followers: p.stats.followers + 1 } } : p);
+                updatedProfile = await followUser(profileData.username, token);
             }
+
+            setProfileData(updatedProfile);
+            setIsFollowing(Boolean(updatedProfile?.isFollowing));
+            setFollowRequestStatus(updatedProfile?.followRequestStatus || (updatedProfile?.isFollowing ? "following" : "none"));
         } catch {
-            // revert on error
+            // keep current state on error
         } finally {
             setFollowLoading(false);
         }
@@ -487,7 +490,7 @@ export default function Profile() {
                                         }
                                     >
                                         <UserPlus size={13} />
-                                        {followLoading ? "..." : isFollowing ? "Following" : "Follow"}
+                                        {followLoading ? "..." : isFollowing ? "Following" : followRequestStatus === "requested" ? "Requested" : "Follow"}
                                     </button>
                                 </>
                             )}

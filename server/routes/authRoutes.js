@@ -5,9 +5,9 @@ import {
     getSession,
     loginUser,
     loginWithGoogle,
-    registerUser,
-    requestRegistrationOtp,
-    resetPassword
+    requestRegistrationVerification,
+    resetPassword,
+    verifyRegistrationToken
 } from "../controllers/authController.js";
 import protect from "../middleware/authMiddleware.js";
 import { validatePasswordStrength } from "../services/authService.js";
@@ -16,7 +16,7 @@ import validateRequest from "../middleware/validateRequest.js";
 
 const router = express.Router();
 
-const sendOtpValidators = [
+const sendVerificationValidators = [
     body("name").trim().isLength({ min: 2, max: 80 }).withMessage("Name is required"),
     body("email").trim().isEmail().withMessage("Valid email required"),
     body("password")
@@ -30,39 +30,38 @@ const sendOtpValidators = [
         })
 ];
 
-const verifyOtpValidators = [
-    body("email").trim().isEmail().withMessage("Valid email required"),
-    body("otp").matches(/^\d{6}$/).withMessage("OTP must be 6 digits")
+const verifyTokenValidators = [
+    body("token").trim().notEmpty().withMessage("Verification token is required")
 ];
+
+router.post(
+    "/request-verification",
+    otpLimiter,
+    sendVerificationValidators,
+    validateRequest,
+    requestRegistrationVerification
+);
 
 router.post(
     "/request-otp",
     otpLimiter,
-    sendOtpValidators,
+    sendVerificationValidators,
     validateRequest,
-    requestRegistrationOtp
+    requestRegistrationVerification
 );
 
 router.post(
-    "/send-otp",
-    otpLimiter,
-    sendOtpValidators,
+    "/verify-registration",
+    verifyTokenValidators,
     validateRequest,
-    requestRegistrationOtp
+    verifyRegistrationToken
 );
 
 router.post(
     "/register",
-    verifyOtpValidators,
+    verifyTokenValidators,
     validateRequest,
-    registerUser
-);
-
-router.post(
-    "/verify-otp",
-    verifyOtpValidators,
-    validateRequest,
-    registerUser
+    verifyRegistrationToken
 );
 
 router.post(

@@ -12,6 +12,7 @@ const Messages = lazy(() => import("./pages/Messages"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Register = lazy(() => import("./pages/Register"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
@@ -94,6 +95,7 @@ export default function App() {
             <Routes>
                 <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
                 <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
+                <Route path="/verify-email" element={<PublicOnlyRoute><VerifyEmail /></PublicOnlyRoute>} />
                 <Route path="/admin/login" element={<AdminPublicRoute><AdminLogin /></AdminPublicRoute>} />
                 <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
 

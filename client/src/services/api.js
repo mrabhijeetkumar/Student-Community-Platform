@@ -86,18 +86,26 @@ async function requestWithFallback(primaryPath, fallbackPath, options = {}) {
     }
 }
 
+export function requestVerification(payload) {
+    return request("/auth/request-verification", {
+        method: "POST",
+        body: JSON.stringify(payload)
+    });
+}
+
 export function requestOtp(payload) {
-    return request("/auth/request-otp", {
+    return requestVerification(payload);
+}
+
+export function verifyRegistration(payload) {
+    return request("/auth/verify-registration", {
         method: "POST",
         body: JSON.stringify(payload)
     });
 }
 
 export function registerUser(payload) {
-    return request("/auth/register", {
-        method: "POST",
-        body: JSON.stringify(payload)
-    });
+    return verifyRegistration(payload);
 }
 
 export function loginUser(payload) {
@@ -361,6 +369,27 @@ export function unfollowUser(username, token) {
         headers: {
             Authorization: `Bearer ${token}`
         }
+    });
+}
+
+
+export function getFollowRequests(token) {
+    return request("/users/follow-requests", {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function acceptFollowRequest(username, token) {
+    return request(`/users/profile/${username}/follow-request/accept`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+}
+
+export function rejectFollowRequest(username, token) {
+    return request(`/users/profile/${username}/follow-request`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
     });
 }
 
