@@ -183,7 +183,7 @@
     html.dark .card-floating,
     html.dark .stat,
     html.dark .stat-tile {
-        box-shadow: 0 0 0 1px rgba(117, 176, 230, 0.12), var(--shadow-soft);
+        box-shadow: 0 0 0 1px rgba(117, 176, 230, 0.16), var(--shadow-soft);
     }
 
     .card:hover {
@@ -195,7 +195,7 @@
     html.dark .card:hover,
     html.dark .card-soft:hover,
     html.dark .card-floating:hover {
-        box-shadow: 0 0 0 1px rgba(144, 205, 255, 0.2), var(--shadow-strong);
+        box-shadow: 0 0 0 1px rgba(144, 205, 255, 0.26), var(--shadow-strong);
     }
 
     .card-soft {
