@@ -421,9 +421,9 @@ function NotifToggleRow({ pref }) {
     const [on, setOn] = useState(pref.defaultOn);
     return (
         <div className="flex items-center justify-between p-3.5 rounded-xl transition-colors"
-            style={{ border: "1px solid var(--border)" }}
+            style={{ border: "1px solid var(--border)", background: "var(--surface-soft)" }}
             onMouseEnter={(e) => e.currentTarget.style.background = "var(--surface-hover)"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "var(--surface-soft)"}
         >
             <div>
                 <p className="text-[14px] font-semibold" style={{ color: "var(--text-main)" }}>{pref.label}</p>
