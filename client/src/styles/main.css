@@ -57,34 +57,34 @@
 
     /* Dark mode overrides */
     html.dark {
-        --bg-base: #050b16;
-        --surface: #0d1627;
-        --surface-elevated: #111f34;
-        --surface-soft: #0b1425;
-        --surface-hover: rgba(106, 185, 255, 0.16);
-        --border: rgba(145, 184, 224, 0.24);
-        --border-hover: rgba(163, 210, 255, 0.42);
-        --border-focus: rgba(114, 194, 255, 0.56);
-        --text-main: rgba(244, 251, 255, 0.97);
-        --text-sub: rgba(220, 236, 252, 0.88);
-        --text-muted: rgba(188, 214, 238, 0.75);
-        --text-faint: rgba(171, 198, 224, 0.6);
-        --primary: #5eb7ff;
-        --primary-light: #94d2ff;
-        --primary-dark: #3a9af1;
-        --primary-subtle: rgba(94, 183, 255, 0.24);
-        --primary-glow: rgba(112, 194, 255, 0.32);
-        --accent: #ffba68;
+        --bg-base: #07090f;
+        --surface: #11151d;
+        --surface-elevated: #171c26;
+        --surface-soft: #0f141c;
+        --surface-hover: rgba(128, 173, 224, 0.14);
+        --border: rgba(150, 178, 212, 0.2);
+        --border-hover: rgba(172, 205, 243, 0.34);
+        --border-focus: rgba(114, 179, 242, 0.52);
+        --text-main: rgba(238, 245, 255, 0.96);
+        --text-sub: rgba(210, 223, 241, 0.84);
+        --text-muted: rgba(178, 196, 219, 0.72);
+        --text-faint: rgba(156, 174, 198, 0.58);
+        --primary: #78baf5;
+        --primary-light: #9ed0ff;
+        --primary-dark: #58a8ef;
+        --primary-subtle: rgba(120, 186, 245, 0.2);
+        --primary-glow: rgba(114, 179, 242, 0.28);
+        --accent: #ffc282;
         --success: #46d69c;
         --success-bg: rgba(70, 214, 156, 0.2);
         --error: #ff7e88;
         --error-bg: rgba(255, 126, 136, 0.2);
         --warning: #ffc26f;
         --warning-bg: rgba(255, 194, 111, 0.2);
-        --hero-start: #07101f;
-        --hero-end: #144f94;
-        --shadow-soft: 0 14px 34px rgba(1, 7, 18, 0.55);
-        --shadow-strong: 0 20px 56px rgba(1, 6, 14, 0.74);
+        --hero-start: #121a28;
+        --hero-end: #1b3557;
+        --shadow-soft: 0 16px 32px rgba(2, 4, 10, 0.46);
+        --shadow-strong: 0 22px 54px rgba(1, 2, 8, 0.65);
         --card-bg: var(--surface-elevated);
         color-scheme: dark;
     }
@@ -113,10 +113,10 @@
 
     html.dark body {
         background-image:
-            radial-gradient(circle at -6% -12%, rgba(77, 170, 255, 0.2) 0%, rgba(77, 170, 255, 0) 56%),
-            radial-gradient(circle at 108% 0%, rgba(151, 109, 255, 0.18) 0%, rgba(151, 109, 255, 0) 48%),
-            radial-gradient(circle at 50% 130%, rgba(34, 197, 241, 0.12) 0%, rgba(34, 197, 241, 0) 56%),
-            linear-gradient(180deg, #060c18 0%, #050b16 100%);
+            radial-gradient(circle at -8% -18%, rgba(83, 137, 199, 0.15) 0%, rgba(83, 137, 199, 0) 58%),
+            radial-gradient(circle at 112% -12%, rgba(112, 86, 179, 0.11) 0%, rgba(112, 86, 179, 0) 50%),
+            radial-gradient(circle at 50% 120%, rgba(70, 119, 177, 0.1) 0%, rgba(70, 119, 177, 0) 56%),
+            linear-gradient(180deg, #0a0d14 0%, #07090f 100%);
     }
 
     body::before {
@@ -144,8 +144,8 @@
     }
 
     html.dark body::before {
-        background-image: radial-gradient(rgba(140, 187, 236, 0.1) 0.8px, transparent 0.8px);
-        opacity: 0.35;
+        background-image: radial-gradient(rgba(112, 146, 183, 0.09) 0.8px, transparent 0.8px);
+        opacity: 0.28;
     }
 
     #root {
@@ -226,6 +226,11 @@
         background: linear-gradient(135deg, var(--hero-start) 0%, #0d3f78 46%, var(--hero-end) 100%);
         border: 1px solid var(--border);
         box-shadow: var(--shadow-strong);
+    }
+
+    html.dark .card-surface {
+        background: linear-gradient(140deg, #141b2a 0%, #1a263a 50%, #1d3350 100%);
+        border-color: rgba(149, 180, 214, 0.24);
     }
 
     .card-subtle {
