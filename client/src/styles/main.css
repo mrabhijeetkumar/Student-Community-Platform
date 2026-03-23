@@ -48,8 +48,8 @@
 
         --hero-start: #0d223a;
         --hero-end: #1468c4;
-        --shadow-soft: 0 8px 24px rgba(15, 41, 73, 0.1);
-        --shadow-strong: 0 14px 40px rgba(15, 41, 73, 0.16);
+        --shadow-soft: 0 10px 28px rgba(15, 41, 73, 0.12);
+        --shadow-strong: 0 18px 44px rgba(15, 41, 73, 0.2);
 
         /* Aliases */
         --card-bg: var(--surface-elevated);
@@ -57,33 +57,34 @@
 
     /* Dark mode overrides */
     html.dark {
-        --bg-base: #0b1320;
-        --surface: #101b2b;
-        --surface-elevated: #142236;
-        --surface-soft: #0d1728;
-        --surface-hover: rgba(147, 192, 239, 0.14);
-        --border: rgba(164, 201, 236, 0.16);
-        --border-hover: rgba(164, 201, 236, 0.28);
-        --text-main: rgba(235, 245, 255, 0.96);
-        --text-sub: rgba(207, 226, 247, 0.8);
-        --text-muted: rgba(189, 210, 234, 0.6);
-        --text-faint: rgba(176, 199, 224, 0.45);
-        --primary: #4fa8ff;
-        --primary-light: #88c5ff;
-        --primary-dark: #2e8bf3;
-        --primary-subtle: rgba(79, 168, 255, 0.18);
-        --primary-glow: rgba(79, 168, 255, 0.24);
-        --accent: #ffac52;
-        --success: #3fba85;
-        --success-bg: rgba(63, 186, 133, 0.17);
-        --error: #ff6d75;
-        --error-bg: rgba(255, 109, 117, 0.16);
-        --warning: #ffb158;
-        --warning-bg: rgba(255, 177, 88, 0.16);
-        --hero-start: #081526;
-        --hero-end: #0f4f9a;
-        --shadow-soft: 0 10px 28px rgba(2, 7, 16, 0.42);
-        --shadow-strong: 0 16px 44px rgba(2, 7, 16, 0.56);
+        --bg-base: #050b16;
+        --surface: #0d1627;
+        --surface-elevated: #111f34;
+        --surface-soft: #0b1425;
+        --surface-hover: rgba(106, 185, 255, 0.16);
+        --border: rgba(145, 184, 224, 0.24);
+        --border-hover: rgba(163, 210, 255, 0.42);
+        --border-focus: rgba(114, 194, 255, 0.56);
+        --text-main: rgba(244, 251, 255, 0.97);
+        --text-sub: rgba(220, 236, 252, 0.88);
+        --text-muted: rgba(188, 214, 238, 0.75);
+        --text-faint: rgba(171, 198, 224, 0.6);
+        --primary: #5eb7ff;
+        --primary-light: #94d2ff;
+        --primary-dark: #3a9af1;
+        --primary-subtle: rgba(94, 183, 255, 0.24);
+        --primary-glow: rgba(112, 194, 255, 0.32);
+        --accent: #ffba68;
+        --success: #46d69c;
+        --success-bg: rgba(70, 214, 156, 0.2);
+        --error: #ff7e88;
+        --error-bg: rgba(255, 126, 136, 0.2);
+        --warning: #ffc26f;
+        --warning-bg: rgba(255, 194, 111, 0.2);
+        --hero-start: #07101f;
+        --hero-end: #144f94;
+        --shadow-soft: 0 14px 34px rgba(1, 7, 18, 0.55);
+        --shadow-strong: 0 20px 56px rgba(1, 6, 14, 0.74);
         --card-bg: var(--surface-elevated);
         color-scheme: dark;
     }
@@ -110,6 +111,14 @@
         position: relative;
     }
 
+    html.dark body {
+        background-image:
+            radial-gradient(circle at -6% -12%, rgba(77, 170, 255, 0.2) 0%, rgba(77, 170, 255, 0) 56%),
+            radial-gradient(circle at 108% 0%, rgba(151, 109, 255, 0.18) 0%, rgba(151, 109, 255, 0) 48%),
+            radial-gradient(circle at 50% 130%, rgba(34, 197, 241, 0.12) 0%, rgba(34, 197, 241, 0) 56%),
+            linear-gradient(180deg, #060c18 0%, #050b16 100%);
+    }
+
     body::before {
         content: "";
         position: fixed;
@@ -119,6 +128,19 @@
         background-size: 16px 16px;
         opacity: 0.4;
         z-index: -1;
+    }
+
+    body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(120deg, rgba(61, 133, 255, 0.07), rgba(147, 88, 255, 0.05) 38%, rgba(34, 211, 238, 0.04) 72%, transparent 100%);
+        z-index: -1;
+    }
+
+    html.dark body::after {
+        opacity: 1;
     }
 
     html.dark body::before {
@@ -156,10 +178,24 @@
         backdrop-filter: blur(8px);
     }
 
+    html.dark .card,
+    html.dark .card-soft,
+    html.dark .card-floating,
+    html.dark .stat,
+    html.dark .stat-tile {
+        box-shadow: 0 0 0 1px rgba(117, 176, 230, 0.12), var(--shadow-soft);
+    }
+
     .card:hover {
         border-color: var(--border-hover);
         box-shadow: var(--shadow-strong);
         transform: translateY(-1px);
+    }
+
+    html.dark .card:hover,
+    html.dark .card-soft:hover,
+    html.dark .card-floating:hover {
+        box-shadow: 0 0 0 1px rgba(144, 205, 255, 0.2), var(--shadow-strong);
     }
 
     .card-soft {
@@ -254,11 +290,17 @@
         @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl text-white transition-all duration-150 select-none;
         background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
         box-shadow: 0 10px 24px rgba(20, 115, 230, 0.28);
+        border: 1px solid transparent;
     }
 
     .btn-primary:hover {
         filter: saturate(1.05) brightness(1.02);
         transform: translateY(-1px);
+    }
+
+    html.dark .btn-primary {
+        box-shadow: 0 14px 28px rgba(59, 130, 246, 0.34);
+        border-color: rgba(170, 218, 255, 0.24);
     }
 
     .btn-primary:active {
@@ -450,13 +492,14 @@
     }
 
     .glass-surface {
-        background: rgba(255, 255, 255, 0.64);
+        background: rgba(255, 255, 255, 0.66);
         border: 1px solid var(--border);
-        backdrop-filter: blur(12px);
+        backdrop-filter: blur(14px);
     }
 
     html.dark .glass-surface {
-        background: rgba(12, 24, 40, 0.72);
+        background: rgba(8, 17, 32, 0.8);
+        box-shadow: 0 10px 30px rgba(2, 8, 20, 0.55);
     }
 
     .topbar-btn {
@@ -505,6 +548,10 @@
         scrollbar-color: rgba(44, 112, 185, 0.36) transparent;
     }
 
+    html.dark .scrollbar-thin {
+        scrollbar-color: rgba(115, 186, 255, 0.42) transparent;
+    }
+
     .scrollbar-thin::-webkit-scrollbar {
         width: 4px;
     }
@@ -518,9 +565,17 @@
         border-radius: 2px;
     }
 
+    html.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+        background: rgba(115, 186, 255, 0.42);
+    }
+
     .scrollbar {
         scrollbar-width: thin;
         scrollbar-color: rgba(44, 112, 185, 0.4) transparent;
+    }
+
+    html.dark .scrollbar {
+        scrollbar-color: rgba(120, 191, 255, 0.45) transparent;
     }
 
     .scrollbar::-webkit-scrollbar {
@@ -530,6 +585,10 @@
     .scrollbar::-webkit-scrollbar-thumb {
         background: rgba(44, 112, 185, 0.4);
         border-radius: 3px;
+    }
+
+    html.dark .scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(120, 191, 255, 0.45);
     }
 }
 
