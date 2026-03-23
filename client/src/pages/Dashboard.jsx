@@ -187,28 +187,30 @@ export default function Dashboard() {
                                 Welcome back, {user?.name?.split(" ")[0] || "Student"} 👋
                             </p>
                             <p className="text-[13px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-                                Here's your activity overview {dashStats.stats.isEmailVerified ? "• Verified account" : "• Email verification pending"}
+                                Here&apos;s your activity overview {dashStats.stats.isEmailVerified ? "• Verified account" : "• Email verification pending"}
                             </p>
                         </div>
                         <button
                             type="button"
                             onClick={() => navigate(`/profile/${user?.username || ""}`)}
                             className="text-[12px] font-semibold px-3 py-2 rounded-xl transition-colors"
-                            style={{ color: "var(--primary)", background: "var(--primary-subtle)" }}
+                            style={{ color: "var(--primary)", background: "var(--primary-subtle)", border: "1px solid rgba(99,102,241,0.22)" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(99,102,241,0.20)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--primary-subtle)"; }}
                         >
                             View Profile
                         </button>
                         <div className="flex gap-3 flex-wrap">
                                 {[
-                                { icon: FileText, label: "Posts", value: dashStats.stats.totalPosts, color: "var(--primary)" },
-                                { icon: Users, label: "Followers", value: dashStats.stats.totalFollowers, color: "#0f8e72" },
-                                { icon: UserPlus, label: "Requests", value: dashStats.stats.pendingFollowRequests || 0, color: "#7c3aed" },
-                                { icon: Heart, label: "Saved", value: dashStats.stats.totalSavedPosts, color: "#d96a1c" },
-                                { icon: MessagesSquare, label: "Communities", value: dashStats.stats.joinedCommunities, color: "#10b981" },
-                            ].map(({ icon: Icon, label, value, color }) => (
+                                { icon: FileText, label: "Posts", value: dashStats.stats.totalPosts },
+                                { icon: Users, label: "Followers", value: dashStats.stats.totalFollowers },
+                                { icon: UserPlus, label: "Requests", value: dashStats.stats.pendingFollowRequests || 0 },
+                                { icon: Heart, label: "Saved", value: dashStats.stats.totalSavedPosts },
+                                { icon: MessagesSquare, label: "Communities", value: dashStats.stats.joinedCommunities },
+                            ].map(({ icon: Icon, label, value }) => (
                                 <div key={label} className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}>
-                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${color}15` }}>
-                                        <Icon size={14} style={{ color }} />
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--primary-subtle)" }}>
+                                        <Icon size={14} style={{ color: "var(--primary)" }} />
                                     </div>
                                     <div>
                                         <p className="text-[16px] font-black leading-none" style={{ color: "var(--text-main)" }}>{value}</p>
@@ -241,6 +243,12 @@ export default function Dashboard() {
                                     style={feedType === id
                                         ? { background: "var(--primary-subtle)", color: "var(--primary-light)", border: "1px solid rgba(99,102,241,0.2)" }
                                         : { background: "transparent", color: "var(--text-muted)", border: "1px solid transparent" }}
+                                    onMouseEnter={(e) => {
+                                        if (feedType !== id) e.currentTarget.style.background = "var(--primary-subtle)";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (feedType !== id) e.currentTarget.style.background = "transparent";
+                                    }}
                                 >
                                     <Icon size={13} />
                                     {label}
@@ -309,7 +317,9 @@ export default function Dashboard() {
                             type="button"
                             onClick={() => navigate(`/profile/${user?.username || ""}`)}
                             className="mt-3 w-full text-[12px] font-semibold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1"
-                            style={{ color: "var(--primary)", background: "var(--primary-subtle)" }}
+                            style={{ color: "var(--primary)", background: "var(--primary-subtle)", border: "1px solid rgba(99,102,241,0.22)" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(99,102,241,0.20)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--primary-subtle)"; }}
                         >
                             <CheckCircle2 size={12} /> Complete profile
                         </button>
@@ -348,9 +358,11 @@ export default function Dashboard() {
                                                 onClick={() => handleToggleFollow(s)}
                                                 className="shrink-0 text-[12px] font-semibold px-2.5 py-1 rounded-full transition-all"
                                                 style={isFollowing
-                                                    ? { background: "var(--surface-soft)", color: "var(--text-muted)", border: "1px solid var(--border)" }
-                                                    : { background: "var(--primary-subtle)", color: "var(--primary)", border: "1px solid rgba(10,102,194,0.2)" }
+                                                    ? { background: "var(--primary-subtle)", color: "var(--primary)", border: "1px solid rgba(99,102,241,0.22)" }
+                                                    : { background: "var(--primary-subtle)", color: "var(--primary)", border: "1px solid rgba(99,102,241,0.22)" }
                                                 }
+                                                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(99,102,241,0.20)"; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.background = "var(--primary-subtle)"; }}
                                             >
                                                 {isFollowing ? "Following" : s.followRequestStatus === "requested" ? "Requested" : "Follow"}
                                             </button>
@@ -361,9 +373,9 @@ export default function Dashboard() {
                             <button
                                 onClick={() => navigate("/explore")}
                                 className="mt-3 w-full text-[12px] font-semibold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1"
-                                style={{ color: "var(--primary)", background: "transparent" }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = "var(--primary-subtle)"}
-                                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                                style={{ color: "var(--primary)", background: "var(--primary-subtle)", border: "1px solid rgba(99,102,241,0.22)" }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(99,102,241,0.20)"}
+                                onMouseLeave={(e) => e.currentTarget.style.background = "var(--primary-subtle)"}
                             >
                                 Discover more <ArrowRight size={12} />
                             </button>
@@ -384,10 +396,10 @@ export default function Dashboard() {
                                     onClick={() => { if (action) action(); else if (to) navigate(to); }}
                                     className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-[13px] font-medium transition-colors text-left"
                                     style={{ color: "var(--text-sub)" }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--surface-hover)"}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--primary-subtle)"}
                                     onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                                 >
-                                    <Icon size={13} style={{ color: "var(--text-muted)" }} />
+                                    <Icon size={13} style={{ color: "var(--primary)" }} />
                                     {label}
                                 </button>
                             ))}
