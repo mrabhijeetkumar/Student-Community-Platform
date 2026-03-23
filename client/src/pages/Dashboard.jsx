@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bookmark, Rss, Sparkles, TrendingUp, Users, UserPlus, FileText, Heart, MessagesSquare, ArrowRight } from "lucide-react";
+import { Bookmark, Rss, Sparkles, TrendingUp, Users, UserPlus, FileText, Heart, MessagesSquare, ArrowRight, User, CheckCircle2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import CreatePost from "../components/CreatePost.jsx";
@@ -32,6 +32,14 @@ export default function Dashboard() {
     const composerSectionRef = useRef(null);
     const [dashStats, setDashStats] = useState(null);
     const [suggestions, setSuggestions] = useState([]);
+    const profileCompletionChecklist = [
+        Boolean(user?.profilePhoto),
+        Boolean(user?.headline),
+        Boolean(user?.college),
+        Boolean(user?.bio),
+        Array.isArray(user?.skills) ? user.skills.length > 0 : Boolean(user?.skills),
+    ];
+    const profileCompletionPercent = Math.round((profileCompletionChecklist.filter(Boolean).length / profileCompletionChecklist.length) * 100);
 
     const loadDashboard = async ({ showLoading = true, type } = {}) => {
         if (!token) return;
@@ -182,6 +190,14 @@ export default function Dashboard() {
                                 Here's your activity overview {dashStats.stats.isEmailVerified ? "• Verified account" : "• Email verification pending"}
                             </p>
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => navigate(`/profile/${user?.username || ""}`)}
+                            className="text-[12px] font-semibold px-3 py-2 rounded-xl transition-colors"
+                            style={{ color: "var(--primary)", background: "var(--primary-subtle)" }}
+                        >
+                            View Profile
+                        </button>
                         <div className="flex gap-3 flex-wrap">
                                 {[
                                 { icon: FileText, label: "Posts", value: dashStats.stats.totalPosts, color: "var(--primary)" },
@@ -267,7 +283,38 @@ export default function Dashboard() {
                 </div>
 
                 {/* ═══ RIGHT SIDEBAR ═══ */}
-                <div className="hidden lg:block w-[260px] shrink-0 space-y-3">
+                <div className="hidden lg:block w-[260px] shrink-0 space-y-3 lg:sticky lg:top-5 self-start">
+                    {/* Profile health */}
+                    <div className="card p-4">
+                        <p className="text-[13px] font-bold mb-2 flex items-center gap-1.5" style={{ color: "var(--text-sub)" }}>
+                            <User size={13} /> Profile Strength
+                        </p>
+                        <div className="rounded-lg overflow-hidden mb-2" style={{ background: "var(--surface-soft)", border: "1px solid var(--border)" }}>
+                            <div
+                                className="h-2 transition-all duration-500"
+                                style={{
+                                    width: `${profileCompletionPercent}%`,
+                                    background: profileCompletionPercent >= 80
+                                        ? "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)"
+                                        : "linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)",
+                                }}
+                            />
+                        </div>
+                        <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>
+                            {profileCompletionPercent >= 100
+                                ? "Excellent! Your profile looks complete."
+                                : `${profileCompletionPercent}% complete • Add missing details to stand out in explore.`}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => navigate(`/profile/${user?.username || ""}`)}
+                            className="mt-3 w-full text-[12px] font-semibold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1"
+                            style={{ color: "var(--primary)", background: "var(--primary-subtle)" }}
+                        >
+                            <CheckCircle2 size={12} /> Complete profile
+                        </button>
+                    </div>
+
                     {/* People You May Know */}
                     {suggestions.length > 0 && (
                         <motion.div
@@ -330,7 +377,7 @@ export default function Dashboard() {
                             {[
                                 { label: "Explore Communities", to: "/communities", icon: Users },
                                 { label: "Saved Posts", action: () => setFeedTypeSync("saved"), icon: Bookmark },
-                                { label: "Your Profile", to: `/profile/${user?.username}`, icon: UserPlus },
+                                { label: "Your Profile", to: `/profile/${user?.username}`, icon: User },
                             ].map(({ label, to, action, icon: Icon }) => (
                                 <button
                                     key={label}
