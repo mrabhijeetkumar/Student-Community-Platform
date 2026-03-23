@@ -57,34 +57,34 @@
 
     /* Dark mode overrides */
     html.dark {
-        --bg-base: #050b16;
-        --surface: #0d1627;
-        --surface-elevated: #111f34;
-        --surface-soft: #0b1425;
-        --surface-hover: rgba(106, 185, 255, 0.16);
-        --border: rgba(145, 184, 224, 0.24);
-        --border-hover: rgba(163, 210, 255, 0.42);
-        --border-focus: rgba(114, 194, 255, 0.56);
-        --text-main: rgba(244, 251, 255, 0.97);
-        --text-sub: rgba(220, 236, 252, 0.88);
-        --text-muted: rgba(188, 214, 238, 0.75);
-        --text-faint: rgba(171, 198, 224, 0.6);
-        --primary: #5eb7ff;
-        --primary-light: #94d2ff;
-        --primary-dark: #3a9af1;
-        --primary-subtle: rgba(94, 183, 255, 0.24);
-        --primary-glow: rgba(112, 194, 255, 0.32);
-        --accent: #ffba68;
+        --bg-base: #080b12;
+        --surface: #121826;
+        --surface-elevated: #182133;
+        --surface-soft: #101827;
+        --surface-hover: rgba(52, 164, 255, 0.17);
+        --border: rgba(145, 184, 224, 0.28);
+        --border-hover: rgba(167, 210, 255, 0.4);
+        --border-focus: rgba(114, 179, 242, 0.52);
+        --text-main: rgba(244, 251, 255, 0.98);
+        --text-sub: rgba(223, 237, 252, 0.9);
+        --text-muted: rgba(194, 215, 238, 0.8);
+        --text-faint: rgba(174, 197, 223, 0.68);
+        --primary: #1473e6;
+        --primary-light: #34a4ff;
+        --primary-dark: #0a56b9;
+        --primary-subtle: rgba(52, 164, 255, 0.22);
+        --primary-glow: rgba(66, 153, 255, 0.34);
+        --accent: #ffc282;
         --success: #46d69c;
         --success-bg: rgba(70, 214, 156, 0.2);
         --error: #ff7e88;
         --error-bg: rgba(255, 126, 136, 0.2);
         --warning: #ffc26f;
         --warning-bg: rgba(255, 194, 111, 0.2);
-        --hero-start: #07101f;
-        --hero-end: #144f94;
-        --shadow-soft: 0 14px 34px rgba(1, 7, 18, 0.55);
-        --shadow-strong: 0 20px 56px rgba(1, 6, 14, 0.74);
+        --hero-start: #11213b;
+        --hero-end: #1459a5;
+        --shadow-soft: 0 16px 32px rgba(2, 4, 10, 0.46);
+        --shadow-strong: 0 22px 54px rgba(1, 2, 8, 0.65);
         --card-bg: var(--surface-elevated);
         color-scheme: dark;
     }
@@ -113,10 +113,10 @@
 
     html.dark body {
         background-image:
-            radial-gradient(circle at -6% -12%, rgba(77, 170, 255, 0.2) 0%, rgba(77, 170, 255, 0) 56%),
-            radial-gradient(circle at 108% 0%, rgba(151, 109, 255, 0.18) 0%, rgba(151, 109, 255, 0) 48%),
-            radial-gradient(circle at 50% 130%, rgba(34, 197, 241, 0.12) 0%, rgba(34, 197, 241, 0) 56%),
-            linear-gradient(180deg, #060c18 0%, #050b16 100%);
+            radial-gradient(circle at -8% -18%, rgba(52, 164, 255, 0.19) 0%, rgba(52, 164, 255, 0) 58%),
+            radial-gradient(circle at 112% -12%, rgba(123, 96, 214, 0.13) 0%, rgba(123, 96, 214, 0) 50%),
+            radial-gradient(circle at 50% 120%, rgba(20, 115, 230, 0.13) 0%, rgba(20, 115, 230, 0) 56%),
+            linear-gradient(180deg, #0a0e17 0%, #080b12 100%);
     }
 
     body::before {
@@ -144,8 +144,8 @@
     }
 
     html.dark body::before {
-        background-image: radial-gradient(rgba(140, 187, 236, 0.1) 0.8px, transparent 0.8px);
-        opacity: 0.35;
+        background-image: radial-gradient(rgba(112, 146, 183, 0.09) 0.8px, transparent 0.8px);
+        opacity: 0.3;
     }
 
     #root {
@@ -183,7 +183,7 @@
     html.dark .card-floating,
     html.dark .stat,
     html.dark .stat-tile {
-        box-shadow: 0 0 0 1px rgba(117, 176, 230, 0.12), var(--shadow-soft);
+        box-shadow: 0 0 0 1px rgba(117, 176, 230, 0.16), var(--shadow-soft);
     }
 
     .card:hover {
@@ -195,7 +195,7 @@
     html.dark .card:hover,
     html.dark .card-soft:hover,
     html.dark .card-floating:hover {
-        box-shadow: 0 0 0 1px rgba(144, 205, 255, 0.2), var(--shadow-strong);
+        box-shadow: 0 0 0 1px rgba(144, 205, 255, 0.26), var(--shadow-strong);
     }
 
     .card-soft {
@@ -226,6 +226,17 @@
         background: linear-gradient(135deg, var(--hero-start) 0%, #0d3f78 46%, var(--hero-end) 100%);
         border: 1px solid var(--border);
         box-shadow: var(--shadow-strong);
+    }
+
+    html.dark .card-surface {
+        background: linear-gradient(140deg, #13203a 0%, #18325a 50%, #1459a5 100%);
+        border-color: rgba(149, 180, 214, 0.3);
+    }
+
+    html.dark .sidebar-item.active {
+        background: rgba(52, 164, 255, 0.25);
+        border-color: rgba(52, 164, 255, 0.42);
+        box-shadow: inset 3px 0 0 var(--primary), 0 8px 18px rgba(20, 115, 230, 0.26);
     }
 
     .card-subtle {
