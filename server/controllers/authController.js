@@ -1,0 +1,435 @@
+import crypto from "crypto";
+import User from "../models/User.js";
+import PasswordResetToken from "../models/PasswordResetToken.js";
+import VerificationToken from "../models/VerificationToken.js";
+import {
+    assertAllowedGmail,
+    buildAuthResponse,
+    buildSafeUser,
+    comparePassword,
+    ensureUniqueUsername,
+    getUserRoles,
+    hasRole,
+    hashPassword,
+    normalizeEmail,
+    validatePasswordStrength
+} from "../services/authService.js";
+import {
+    sendPasswordResetOtpEmail,
+    sendVerificationEmail
+} from "../services/emailService.js";
+import { verifyGoogleToken } from "../services/googleService.js";
+
+const hashVerificationToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+const createVerificationToken = () => crypto.randomBytes(32).toString("hex");
+
+const getSuperAdminEmail = () => {
+    const raw = process.env.SUPER_ADMIN_EMAIL;
+    if (!raw) {
+        return "";
+    }
+
+    return normalizeEmail(raw);
+};
+
+export const requestRegistrationVerification = async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+        const normalizedEmail = assertAllowedGmail(email);
+        const passwordValidation = validatePasswordStrength(password);
+
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ message: passwordValidation.message });
+        }
+
+        const existingUser = await User.findOne({ email: normalizedEmail });
+
+        if (existingUser?.authProvider === "google") {
+            return res.status(409).json({ message: "This account already exists with Google sign-in" });
+        }
+
+        if (existingUser?.isEmailVerified) {
+            return res.status(409).json({ message: "A student account already exists for this email" });
+        }
+
+        let targetUser = existingUser;
+        if (!targetUser) {
+            const username = await ensureUniqueUsername(name || normalizedEmail.split("@")[0]);
+            targetUser = await User.create({
+                username,
+                name,
+                email: normalizedEmail,
+                password: await hashPassword(password),
+                authProvider: "local",
+                role: "student",
+                roles: ["student"],
+                isEmailVerified: false
+            });
+        } else {
+            targetUser.name = name;
+            targetUser.password = await hashPassword(password);
+            targetUser.authProvider = "local";
+            targetUser.role = "student";
+            targetUser.roles = getUserRoles(targetUser).includes("student")
+                ? getUserRoles(targetUser)
+                : [...getUserRoles(targetUser), "student"];
+            await targetUser.save();
+        }
+
+        const rawToken = createVerificationToken();
+
+        await VerificationToken.findOneAndUpdate(
+            { userId: targetUser._id },
+            {
+                userId: targetUser._id,
+                tokenHash: hashVerificationToken(rawToken),
+                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+                attempts: 0,
+                lastSentAt: new Date()
+            },
+            { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+        );
+
+        const delivery = await sendVerificationEmail(normalizedEmail, rawToken);
+
+        if (!delivery.success) {
+            return res.status(delivery.statusCode || 502).json({
+                message: delivery.message || "Unable to send verification email"
+            });
+        }
+
+        res.status(200).json({
+            message: "Verification link sent successfully",
+            requestId: delivery.messageId
+        });
+    } catch (error) {
+        console.error("[auth] requestRegistrationVerification failed", {
+            code: error?.code,
+            statusCode: error?.statusCode,
+            message: error?.message
+        });
+
+        if (error?.code === 11000) {
+            return res.status(409).json({ message: "An account already exists with this email" });
+        }
+
+        if (error?.statusCode) {
+            return res.status(error.statusCode).json({ message: error.message });
+        }
+
+        return res.status(500).json({ message: "Verification email sending failed" });
+    }
+};
+
+export const resendRegistrationVerification = async (req, res) => {
+    try {
+        const normalizedEmail = assertAllowedGmail(req.body.email);
+        const existingUser = await User.findOne({ email: normalizedEmail }).select("+password");
+
+        if (!existingUser || existingUser.authProvider !== "local") {
+            return res.status(404).json({
+                message: "No pending verification found. Please sign up again to request a new verification link."
+            });
+        }
+
+        if (existingUser.isEmailVerified) {
+            return res.status(409).json({ message: "Email is already verified. Please login." });
+        }
+
+        const pendingToken = await VerificationToken.findOne({ userId: existingUser._id });
+
+        if (pendingToken?.lastSentAt && (Date.now() - new Date(pendingToken.lastSentAt).getTime()) < 60_000) {
+            return res.status(429).json({ message: "Please wait before requesting another verification email" });
+        }
+
+        const rawToken = createVerificationToken();
+        await VerificationToken.findOneAndUpdate(
+            { userId: existingUser._id },
+            {
+                userId: existingUser._id,
+                tokenHash: hashVerificationToken(rawToken),
+                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+                attempts: 0,
+                lastSentAt: new Date()
+            },
+            { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+        );
+
+        const delivery = await sendVerificationEmail(normalizedEmail, rawToken);
+
+        if (!delivery.success) {
+            return res.status(delivery.statusCode || 502).json({
+                message: delivery.message || "Unable to send verification email"
+            });
+        }
+
+        return res.status(200).json({
+            message: "Verification link resent successfully",
+            requestId: delivery.messageId
+        });
+    } catch (error) {
+        if (error?.statusCode) {
+            return res.status(error.statusCode).json({ message: error.message });
+        }
+
+        return res.status(500).json({ message: "Verification email sending failed" });
+    }
+};
+
+export const verifyRegistrationToken = async (req, res) => {
+    try {
+        const token = (req.body?.token || req.query?.token || "").trim();
+
+        if (!token) {
+            return res.status(400).json({ message: "Verification token is required" });
+        }
+
+        const tokenDoc = await VerificationToken.findOne({ tokenHash: hashVerificationToken(token) });
+
+        if (!tokenDoc || tokenDoc.expiresAt < new Date()) {
+            if (tokenDoc) {
+                await VerificationToken.deleteOne({ _id: tokenDoc._id });
+            }
+            return res.status(400).json({ message: "Verification link expired or invalid" });
+        }
+
+        const existingUser = await User.findById(tokenDoc.userId);
+
+        if (!existingUser) {
+            await VerificationToken.deleteOne({ _id: tokenDoc._id });
+            return res.status(404).json({ message: "User record not found for this verification link" });
+        }
+
+        if (existingUser.isEmailVerified) {
+            await VerificationToken.deleteOne({ _id: tokenDoc._id });
+            return res.status(200).json({
+                message: "Email already verified",
+                ...buildAuthResponse(existingUser)
+            });
+        }
+
+        existingUser.isEmailVerified = true;
+        existingUser.emailVerifiedAt = new Date();
+        existingUser.lastLoginAt = new Date();
+        const user = await existingUser.save();
+
+        await VerificationToken.deleteOne({ _id: tokenDoc._id });
+
+        res.status(201).json({
+            message: "Registration successful",
+            ...buildAuthResponse(user)
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({ message: error.message });
+    }
+};
+
+export const loginUser = async (req, res) => {
+    try {
+        const email = normalizeEmail(req.body.email);
+        const role = ["student", "admin"].includes(req.body.role) ? req.body.role : "student";
+        const user = await User.findOne({ email }).select("+password");
+        const superAdminEmail = getSuperAdminEmail();
+
+        if (!user) {
+            return res.status(400).json({ message: "Invalid email or password" });
+        }
+
+        if (!hasRole(user, role)) {
+            return res.status(403).json({
+                message: role === "admin"
+                    ? "Admin panel access is restricted"
+                    : "Student dashboard access is not enabled for this account"
+            });
+        }
+
+        if (role === "admin" && superAdminEmail && user.email === superAdminEmail && !hasRole(user, "admin")) {
+            return res.status(403).json({ message: "Primary admin account is not initialized yet" });
+        }
+
+        if (user.authProvider === "google") {
+            return res.status(400).json({ message: "Use Google sign-in for this account" });
+        }
+
+        if (!user.isEmailVerified) {
+            return res.status(403).json({ message: "Please verify your email before logging in" });
+        }
+
+        const isMatch = await comparePassword(req.body.password, user.password);
+
+        if (!isMatch) {
+            return res.status(400).json({ message: "Invalid email or password" });
+        }
+
+        user.lastLoginAt = new Date();
+        await user.save();
+
+        res.json({
+            message: "Login successful",
+            ...buildAuthResponse(user, role)
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const loginWithGoogle = async (req, res) => {
+    try {
+        const payload = await verifyGoogleToken(req.body.idToken);
+
+        if (!payload.email_verified) {
+            return res.status(400).json({ message: "Google account email is not verified" });
+        }
+
+        const email = assertAllowedGmail(payload.email);
+        let user = await User.findOne({ email });
+
+        if (!user) {
+            const username = await ensureUniqueUsername(payload.name || email.split("@")[0]);
+            user = await User.create({
+                username,
+                name: payload.name,
+                email,
+                role: "student",
+                roles: ["student"],
+                googleId: payload.sub,
+                authProvider: "google",
+                isEmailVerified: true,
+                emailVerifiedAt: new Date(),
+                profilePhoto: payload.picture || "",
+                headline: "Student community member"
+            });
+        }
+
+        user.lastLoginAt = new Date();
+        user.googleId = payload.sub;
+        user.profilePhoto = user.profilePhoto || payload.picture || "";
+        if (!hasRole(user, "student")) {
+            user.roles = [...getUserRoles(user), "student"];
+        }
+        await user.save();
+
+        res.json({
+            message: "Google login successful",
+            ...buildAuthResponse(user)
+        });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+export const getSession = async (req, res) => {
+    res.json({ user: buildSafeUser(req.user) });
+};
+
+export const forgotPassword = async (req, res) => {
+    const genericResponse = {
+        message: "If an account exists with this email, an OTP has been sent.",
+        otpSent: true
+    };
+
+    try {
+        const email = normalizeEmail(req.body.email);
+        const superAdminEmail = getSuperAdminEmail();
+        const user = await User.findOne({ email });
+
+        // IMPORTANT: never reveal whether an account exists for this email,
+        // whether it uses Google sign-in, or whether it's an inactive admin
+        // account. All of these previously returned distinct status codes /
+        // messages, which let an attacker enumerate registered emails and
+        // their auth provider. We now always return the same generic
+        // response and simply skip sending an email when we can't/shouldn't.
+        const canReceiveOtp = Boolean(
+            user &&
+            user.authProvider !== "google" &&
+            !(superAdminEmail && email === superAdminEmail && !hasRole(user, "admin"))
+        );
+
+        if (!canReceiveOtp) {
+            return res.status(200).json(genericResponse);
+        }
+
+        const otp = `${Math.floor(100000 + Math.random() * 900000)}`;
+
+        await PasswordResetToken.findOneAndUpdate(
+            { email, role: "student" },
+            {
+                email,
+                role: "student",
+                otpHash: crypto.createHash("sha256").update(otp).digest("hex"),
+                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+                attempts: 0
+            },
+            { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+        );
+
+        const delivery = await sendPasswordResetOtpEmail({ email, otp });
+
+        if (!delivery.success) {
+            // Still avoid leaking account existence on delivery failure;
+            // log server-side for operators to investigate instead.
+            console.error("[auth] forgotPassword email delivery failed", {
+                statusCode: delivery.statusCode,
+                message: delivery.message
+            });
+            return res.status(200).json(genericResponse);
+        }
+
+        res.status(200).json({ ...genericResponse, requestId: delivery.messageId });
+    } catch (error) {
+        console.error("[auth] forgotPassword failed", {
+            code: error?.code,
+            statusCode: error?.statusCode,
+            message: error?.message
+        });
+
+        // Even on unexpected errors, avoid leaking whether the account
+        // exists; return the generic response with a 200 status.
+        return res.status(200).json(genericResponse);
+    }
+};
+
+export const resetPassword = async (req, res) => {
+    try {
+        const email = normalizeEmail(req.body.email);
+        const otp = String(req.body.otp || "");
+        const { newPassword } = req.body;
+
+        const passwordValidation = validatePasswordStrength(newPassword);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ message: passwordValidation.message });
+        }
+
+        const resetDoc = await PasswordResetToken.findOne({ email, role: "student" });
+        if (!resetDoc || resetDoc.expiresAt < new Date()) {
+            return res.status(400).json({ message: "OTP expired. Request a new one." });
+        }
+
+        if (resetDoc.attempts >= 5) {
+            return res.status(429).json({ message: "Too many invalid OTP attempts" });
+        }
+
+        const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+        if (resetDoc.otpHash !== otpHash) {
+            resetDoc.attempts += 1;
+            await resetDoc.save();
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+
+        const user = await User.findOne({ email }).select("+password");
+        const superAdminEmail = getSuperAdminEmail();
+        if (!user) {
+            await PasswordResetToken.deleteOne({ _id: resetDoc._id });
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        user.password = await hashPassword(newPassword);
+        await user.save();
+
+        await PasswordResetToken.deleteOne({ _id: resetDoc._id });
+
+        return res.status(200).json({ message: "Password reset successful" });
+    } catch (error) {
+        return res.status(500).json({ message: error.message || "Could not reset password" });
+    }
+};
